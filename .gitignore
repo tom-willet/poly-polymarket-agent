@@ -1,0 +1,10 @@
+.env
+*.log
+*.tmp
+*.swp
+
+# Local deployment state
+deploy/lightsail/.env
+deploy/lightsail/runtime/
+deploy/lightsail/state/
+__pycache__/

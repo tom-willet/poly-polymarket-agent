@@ -1,0 +1,34 @@
+display_information:
+  name: Poly Orchestrator
+  description: OpenClaw control bot for multi-app Polymarket orchestration
+  background_color: "#0B3D91"
+
+features:
+  bot_user:
+    display_name: Poly Orchestrator
+    always_online: false
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+      - im:history
+      - im:read
+      - im:write
+      - users:read
+
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - message.im
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false

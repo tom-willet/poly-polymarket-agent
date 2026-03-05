@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenClaw Gateway (Docker Compose)
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=__STACK_ROOT__
+ExecStart=/usr/bin/docker compose --env-file __STACK_ROOT__/.env -f __STACK_ROOT__/docker-compose.yml up -d openclaw-gateway
+ExecStop=/usr/bin/docker compose --env-file __STACK_ROOT__/.env -f __STACK_ROOT__/docker-compose.yml stop openclaw-gateway
+ExecReload=/usr/bin/docker compose --env-file __STACK_ROOT__/.env -f __STACK_ROOT__/docker-compose.yml restart openclaw-gateway
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

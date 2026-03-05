@@ -1,0 +1,60 @@
+name: openclaw-stack
+
+services:
+  openclaw-gateway:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+    container_name: openclaw-gateway
+    init: true
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      NODE_ENV: production
+    command:
+      - node
+      - dist/index.js
+      - gateway
+      - --bind
+      - loopback
+      - --port
+      - "18789"
+    volumes:
+      - ./config:/home/node/.openclaw
+      - ./workspace:/home/node/.openclaw/workspace
+    ports:
+      - "127.0.0.1:${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+      - "127.0.0.1:${OPENCLAW_BRIDGE_PORT:-18790}:18790"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+
+  openclaw-cli:
+    image: ${OPENCLAW_IMAGE:-ghcr.io/openclaw/openclaw:latest}
+    profiles:
+      - ops
+    env_file:
+      - .env
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      NODE_ENV: production
+    entrypoint:
+      - node
+      - dist/index.js
+    volumes:
+      - ./config:/home/node/.openclaw
+      - ./workspace:/home/node/.openclaw/workspace

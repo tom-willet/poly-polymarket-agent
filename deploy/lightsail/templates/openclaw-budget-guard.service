@@ -1,0 +1,11 @@
+[Unit]
+Description=OpenAI monthly budget guard for OpenClaw
+After=network-online.target docker.service openclaw-gateway.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=__STACK_ROOT__
+EnvironmentFile=__STACK_ROOT__/.env
+Environment=STACK_ROOT=__STACK_ROOT__
+ExecStart=/usr/bin/python3 __STACK_ROOT__/scripts/openai_budget_guard.py
