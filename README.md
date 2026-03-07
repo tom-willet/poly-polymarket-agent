@@ -33,6 +33,7 @@ Checkpoint notes:
 - `openclaw-control` can now persist operator mode / pause / flatten state and produce Slack-ready operator responses.
 - `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for binary complement inconsistencies.
 - `openclaw-control` can now run an in-process decision cycle from proposal generation through allocator, risk, and execution intent planning.
+- `openclaw-control` now derives cycle exposure, performance, and heartbeat inputs from persisted state when available.
 - Live trading remains disabled pending Polymarket US beta enablement and explicit production approval.
 
 Specs:

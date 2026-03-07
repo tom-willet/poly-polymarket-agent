@@ -78,3 +78,4 @@ Checkpoint notes:
 - `openclaw-control` now has an operator command core with persisted mode / pause / flatten state and ledger logging
 - `openclaw-control` now has a first deterministic proposal generator for binary complement consistency checks
 - `openclaw-control` now has an integrated decision-cycle command that runs proposal generation through allocator, risk, and execution intent planning
+- `openclaw-control` now derives cycle exposure, performance, and heartbeat state from persisted sources with controlled fallbacks

@@ -8,15 +8,23 @@ import {
   loadExecutionConfig,
   loadRiskConfig,
   type CurrentStateReader,
+  type ExposureState,
   type EventEnvelope as TradeCoreEnvelope,
   type ExecutionIntentPayload,
+  type PerformanceState,
   type RiskDecisionPayload,
   type StrategyProposalPayload as TradeCoreProposalPayload
 } from "@poly/trade-core";
 import type { ControlConfig } from "./config.js";
 import type { DecisionCyclePayload, EventEnvelope, StrategyProposalPayload } from "./contracts.js";
 import { generateCrossMarketConsistencyProposals } from "./proposals.js";
-import type { AccountSnapshotPayload, CurrentStateStore, DecisionLedgerStore } from "./store.js";
+import type {
+  AccountSnapshotPayload,
+  CurrentStateStore,
+  DecisionLedgerStore,
+  ExecutionHeartbeatPayload,
+  PositionSnapshotPayload
+} from "./store.js";
 import { loadOperatorState } from "./store.js";
 
 export interface DecisionCycleContext {
@@ -80,6 +88,119 @@ async function selectAccountUserAddress(currentState: CurrentStateStore): Promis
   return payload.user_address;
 }
 
+function roundUsd(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+async function loadExposureState(
+  currentState: CurrentStateStore,
+  accountUserAddress: string
+): Promise<{ exposure: ExposureState; notes: string[] }> {
+  const notes: string[] = [];
+  const positions = (await currentState.queryByPkPrefix("position#")).filter(
+    (item) => item.sk === "snapshot"
+  ) as Array<{ pk: string; sk: string; payload: PositionSnapshotPayload; ts_utc: string }>;
+
+  if (positions.length > 0) {
+    const exposure: ExposureState = {
+      grossReservedUsd: 0,
+      sleeveReservedUsd: {},
+      marketComplexReservedUsd: {},
+      contractReservedUsd: {}
+    };
+
+    for (const position of positions) {
+      const gross = roundUsd(
+        (position.payload.gross_exposure_usd ?? 0) + (position.payload.open_orders_reserved_usd ?? 0)
+      );
+      exposure.grossReservedUsd = roundUsd(exposure.grossReservedUsd + gross);
+      exposure.sleeveReservedUsd[position.payload.sleeve_id] = roundUsd(
+        (exposure.sleeveReservedUsd[position.payload.sleeve_id] ?? 0) + gross
+      );
+      exposure.marketComplexReservedUsd[position.payload.market_complex_id] = roundUsd(
+        (exposure.marketComplexReservedUsd[position.payload.market_complex_id] ?? 0) + gross
+      );
+    }
+
+    notes.push(`allocator exposure derived from ${positions.length} position_snapshot rows`);
+    return { exposure, notes };
+  }
+
+  const accountSnapshot = await currentState.get<AccountSnapshotPayload>(`account#${accountUserAddress}`, "snapshot");
+  const grossReservedUsd = roundUsd(accountSnapshot?.payload.total_position_value_usd ?? 0);
+  notes.push("allocator exposure fell back to account_state_snapshot total_position_value_usd");
+  return {
+    exposure: {
+      grossReservedUsd,
+      sleeveReservedUsd: {},
+      marketComplexReservedUsd: {},
+      contractReservedUsd: {}
+    },
+    notes
+  };
+}
+
+async function loadPerformanceState(
+  currentState: CurrentStateStore,
+  bankrollUsd: number
+): Promise<{ performance: PerformanceState; notes: string[] }> {
+  const notes: string[] = [];
+  const positions = (await currentState.queryByPkPrefix("position#")).filter(
+    (item) => item.sk === "snapshot"
+  ) as Array<{ pk: string; sk: string; payload: PositionSnapshotPayload; ts_utc: string }>;
+
+  if (positions.length > 0) {
+    const pnlUsd = positions.reduce(
+      (sum, position) => sum + (position.payload.realized_pnl_usd ?? 0) + (position.payload.unrealized_pnl_usd ?? 0),
+      0
+    );
+    const lossRatio = Math.max(0, -pnlUsd / bankrollUsd);
+    notes.push(`performance derived from ${positions.length} position_snapshot rows`);
+    return {
+      performance: {
+        dailyLossRatio: lossRatio,
+        weeklyDrawdownRatio: lossRatio
+      },
+      notes
+    };
+  }
+
+  notes.push("performance fell back to zero because no position_snapshot rows are available");
+  return {
+    performance: {
+      dailyLossRatio: 0,
+      weeklyDrawdownRatio: 0
+    },
+    notes
+  };
+}
+
+async function loadExecutionHeartbeatHealthy(
+  currentState: CurrentStateStore,
+  env: DecisionCycleContext["env"]
+): Promise<{ executionHeartbeatHealthy: boolean; notes: string[] }> {
+  const notes: string[] = [];
+  const heartbeat = await currentState.get<ExecutionHeartbeatPayload>("health#execution-heartbeat", "latest");
+  if (heartbeat) {
+    notes.push("execution heartbeat derived from current-state health row");
+    return {
+      executionHeartbeatHealthy: heartbeat.payload.healthy,
+      notes
+    };
+  }
+
+  const healthy = env !== "prod";
+  notes.push(
+    healthy
+      ? "execution heartbeat defaulted healthy in non-prod because no heartbeat row exists"
+      : "execution heartbeat defaulted unhealthy because no heartbeat row exists in prod"
+  );
+  return {
+    executionHeartbeatHealthy: healthy,
+    notes
+  };
+}
+
 export async function runDecisionCycle(
   context: DecisionCycleContext
 ): Promise<EventEnvelope<DecisionCyclePayload>> {
@@ -119,22 +240,20 @@ export async function runDecisionCycle(
   }
 
   const allocatorConfig = loadAllocatorConfig();
+  const accountUserAddress = await selectAccountUserAddress(context.currentState);
+  const exposureState = await loadExposureState(context.currentState, accountUserAddress);
   const allocatorDecisions = allocateProposals(
     proposals.map((proposal) => toTradeCoreProposal(proposal)),
     {
       config: allocatorConfig,
-      exposure: {
-        grossReservedUsd: 0,
-        sleeveReservedUsd: {},
-        marketComplexReservedUsd: {},
-        contractReservedUsd: {}
-      }
+      exposure: exposureState.exposure
     }
   );
 
   const riskConfig = loadRiskConfig();
   const executionConfig = loadExecutionConfig();
-  const accountUserAddress = await selectAccountUserAddress(context.currentState);
+  const performanceState = await loadPerformanceState(context.currentState, allocatorConfig.bankrollUsd);
+  const heartbeatState = await loadExecutionHeartbeatHealthy(context.currentState, context.env);
   const riskDecisions: Array<TradeCoreEnvelope<RiskDecisionPayload>> = [];
   const executionIntents: Array<TradeCoreEnvelope<ExecutionIntentPayload>> = [];
 
@@ -157,12 +276,9 @@ export async function runDecisionCycle(
         flattenRequested: operatorState.flatten_requested,
         liveExecutionRequested: false
       },
-      performance: {
-        dailyLossRatio: 0,
-        weeklyDrawdownRatio: 0
-      },
+      performance: performanceState.performance,
       estimatedTotalCostsUsd: 0,
-      executionHeartbeatHealthy: true
+      executionHeartbeatHealthy: heartbeatState.executionHeartbeatHealthy
     });
 
     const riskDecision = evaluateRisk(riskInput, {
@@ -191,10 +307,7 @@ export async function runDecisionCycle(
     allocator_decision_count: allocatorDecisions.length,
     risk_decision_count: riskDecisions.length,
     execution_intent_count: executionIntents.length,
-    notes: [
-      "allocator exposure currently starts from zero reserved state",
-      "performance and heartbeat inputs are placeholder values in the first cycle integration"
-    ],
+    notes: [...exposureState.notes, ...performanceState.notes, ...heartbeatState.notes],
     proposals,
     allocator_decisions: allocatorDecisions.map((entry) => entry.payload),
     risk_decisions: riskDecisions.map((entry) => entry.payload),

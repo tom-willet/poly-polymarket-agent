@@ -51,6 +51,27 @@ export interface AccountSnapshotPayload {
   total_position_value_usd: number;
 }
 
+export interface PositionSnapshotPayload {
+  wallet_id: string;
+  sleeve_id: string;
+  market_complex_id: string;
+  gross_exposure_usd: number;
+  net_exposure_usd: number;
+  realized_pnl_usd: number;
+  unrealized_pnl_usd: number;
+  open_orders_reserved_usd: number;
+  snapshot_ts_utc: string;
+}
+
+export interface ExecutionHeartbeatPayload {
+  active: boolean;
+  healthy: boolean;
+  last_sent_ts_utc: string | null;
+  last_ack_ts_utc: string | null;
+  heartbeat_id: string | null;
+  timeout_ms: number;
+}
+
 export interface CurrentStateStore {
   get<T>(pk: string, sk: string): Promise<StoredEnvelope<T> | null>;
   queryByPkPrefix(prefix: string): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string }>>;
