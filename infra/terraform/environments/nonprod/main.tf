@@ -46,7 +46,9 @@ module "platform_foundation" {
   }
 
   service_dynamodb_table_access = {
+    "openclaw-control" = ["current_state", "decision_ledger"]
     "market-state" = ["current_state"]
+    "trade-core"   = ["current_state"]
   }
 
   service_data_bucket_access = toset(["market-state"])

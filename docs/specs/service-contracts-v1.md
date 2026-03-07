@@ -317,7 +317,52 @@ Payload:
 }
 ```
 
-## 10. `order_event`
+## 13. `execution_action`
+
+Producer:
+
+- `trade-core`
+
+Purpose:
+
+- Tell the execution worker exactly what deterministic step comes next for a live `execution_intent`.
+
+Payload:
+
+```json
+{
+  "order_plan_id": "opl_01HQX...",
+  "decision_id": "dec_01HQX...",
+  "status": "ready",
+  "reason": "execution actions are ready",
+  "actions": [
+    {
+      "market_id": "mkt_a",
+      "contract_id": "ct_yes",
+      "side": "buy",
+      "action": "place_passive",
+      "limit_price": 0.61,
+      "size": 20.0
+    }
+  ]
+}
+```
+
+`status` allowed values:
+
+- `ready`
+- `waiting`
+- `cancel_requested`
+- `completed`
+- `halted`
+
+`actions[].action` allowed values:
+
+- `place_passive`
+- `place_cross`
+- `cancel`
+
+## 14. `order_event`
 
 Producer:
 
@@ -344,7 +389,7 @@ Payload:
 }
 ```
 
-## 11. `position_snapshot`
+## 15. `position_snapshot`
 
 Producer:
 
@@ -370,7 +415,7 @@ Payload:
 }
 ```
 
-## 12. Slack-Facing Adapter Envelope
+## 16. Slack-Facing Adapter Envelope
 
 The existing simple adapter contract remains valid for Slack-facing tools:
 
@@ -381,6 +426,53 @@ The existing simple adapter contract remains valid for Slack-facing tools:
   "ok": true,
   "summary": "short human-readable status",
   "data": {}
+}
+```
+
+## 17. `operator_state`
+
+Producer:
+
+- `openclaw-control`
+
+Purpose:
+
+- Persist the authoritative operator control state used by downstream services.
+
+Payload:
+
+```json
+{
+  "mode": "paper",
+  "paused": false,
+  "flatten_requested": false,
+  "updated_by": "U123456",
+  "updated_at_utc": "2026-03-06T20:05:00Z"
+}
+```
+
+## 18. `operator_notification`
+
+Producer:
+
+- `openclaw-control`
+
+Purpose:
+
+- Return Slack-ready command results without exposing the order path directly to the chat surface.
+
+Payload:
+
+```json
+{
+  "command_id": "cmd_01HQX...",
+  "command": "status",
+  "summary": "Operator status snapshot",
+  "details": [
+    "operator mode: paper",
+    "paused: false",
+    "flatten requested: false"
+  ]
 }
 ```
 

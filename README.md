@@ -17,7 +17,8 @@ Current implementation status:
 - `M1 Market State`: account-state polling, health checks, and persistence plumbing complete.
 - `M1 Market State`: nonprod DynamoDB/S3 persistence verified for the public market-data path.
 - `M1 Market State`: authenticated account-state persistence still needs live credential verification.
-- `M2+`: not started.
+- `M2 Trade Core`: allocator, risk kernel, execution intent planning, heartbeat handling, and reconciliation started.
+- `M3 Control Plane`: operator command core started.
 
 Checkpoint notes:
 - Terraform foundation exists for separate `nonprod` and `prod` environments.
@@ -25,6 +26,9 @@ Checkpoint notes:
 - `market-state` currently emits `market_universe_snapshot`, `market_snapshot`, `market_data_health`, `account_state_snapshot`, and `account_state_health` envelopes.
 - Latest-state persistence uses DynamoDB for compact records and S3 for NDJSON archives.
 - `market_universe_snapshot` is archived to S3 only because the full payload exceeds DynamoDB item-size limits.
+- `trade-core` can now produce `allocator_decision`, `risk_decision`, `execution_intent`, and `execution_action` envelopes.
+- `trade-core` can now hydrate risk and execution inputs from the canonical current-state table.
+- `openclaw-control` can now persist operator mode / pause / flatten state and produce Slack-ready operator responses.
 - Live trading remains disabled pending Polymarket US beta enablement and explicit production approval.
 
 Specs:
@@ -37,6 +41,8 @@ Infrastructure:
 
 Services:
 - [services/market-state/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/market-state/README.md)
+- [services/trade-core/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/trade-core/README.md)
+- [services/openclaw-control/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/openclaw-control/README.md)
 
 Legacy deployment reference:
 - [deploy/lightsail/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/deploy/lightsail/README.md)

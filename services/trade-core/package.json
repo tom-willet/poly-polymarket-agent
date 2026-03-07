@@ -1,0 +1,25 @@
+{
+  "name": "@poly/trade-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "allocate": "tsx src/cli.ts allocate",
+    "risk": "tsx src/cli.ts risk",
+    "hydrate-risk": "tsx src/cli.ts hydrate-risk",
+    "hydrate-plan": "tsx src/cli.ts hydrate-plan",
+    "plan": "tsx src/cli.ts plan",
+    "act": "tsx src/cli.ts act",
+    "test": "node --import tsx --test ./test/*.test.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1004.0",
+    "@aws-sdk/lib-dynamodb": "^3.1004.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

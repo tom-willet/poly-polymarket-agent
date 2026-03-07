@@ -60,9 +60,18 @@ This is the recommended initial GitHub Issues backlog derived from the v1 spec p
 - `Implement Polymarket market discovery and tradable universe ingestion`: completed
 - `Implement real-time book, order, and account state normalization`: in progress
 - `Persist canonical snapshots and publish state events`: in progress
+- `Implement proposal normalization and portfolio allocator`: in progress
+- `Implement deterministic risk kernel and halt logic`: in progress
+- `Implement execution engine, heartbeat handling, and reconciliation`: in progress
+- `Implement Slack operator commands and control workflows`: in progress
 
 Checkpoint notes:
 
 - nonprod IAM for `market-state` current-state and archive writes has been applied
 - public market-data persistence path has been verified end to end against nonprod DynamoDB and S3
 - authenticated account-state persistence remains unverified until nonprod Polymarket credentials are available
+- `trade-core` now has a deterministic allocator prototype with proposal validation, ranking, and bankroll-aware sizing
+- `trade-core` now has a deterministic risk kernel prototype with halt, reject, approve, and resize outcomes
+- `trade-core` now has deterministic execution intent planning, lifecycle action evaluation, heartbeat health tracking, and user-channel reconciliation modules
+- `trade-core` now has a read-side bridge from DynamoDB current-state records into risk and execution planning inputs
+- `openclaw-control` now has an operator command core with persisted mode / pause / flatten state and ledger logging
