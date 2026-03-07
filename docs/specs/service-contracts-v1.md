@@ -102,7 +102,64 @@ Payload:
 }
 ```
 
-## 7. `strategy_proposal`
+## 7. `account_state_snapshot`
+
+Producer:
+
+- `market-state`
+
+Purpose:
+
+- Provide a coherent normalized view of balances, open orders, positions, and recent fills for one trading account.
+
+Payload:
+
+```json
+{
+  "user_address": "0xabc...",
+  "funder_address": "0xabc...",
+  "collateral": {
+    "asset_type": "COLLATERAL",
+    "token_id": null,
+    "balance": 842.13,
+    "allowance": 842.13
+  },
+  "open_order_count": 3,
+  "position_count": 4,
+  "recent_trade_count": 12,
+  "total_position_value_usd": 314.52,
+  "open_orders": [],
+  "positions": [],
+  "recent_trades": []
+}
+```
+
+## 8. `account_state_health`
+
+Producer:
+
+- `market-state`
+
+Purpose:
+
+- Surface whether account/order polling is fresh and structurally coherent enough for downstream risk checks.
+
+Payload:
+
+```json
+{
+  "last_success_ts_utc": "2026-03-06T20:00:00Z",
+  "stale_threshold_ms": 15000,
+  "stale": false,
+  "reconciliation_ok": true,
+  "issues": [],
+  "open_order_count": 3,
+  "position_count": 4,
+  "recent_trade_count": 12
+}
+```
+
+## 9. `strategy_proposal`
 
 Producer:
 
@@ -155,7 +212,7 @@ Required fields:
 - `max_holding_hours`
 - `invalidators`
 
-## 8. `allocator_decision`
+## 10. `allocator_decision`
 
 Producer:
 
@@ -180,7 +237,7 @@ Payload:
 }
 ```
 
-## 9. `risk_decision`
+## 11. `risk_decision`
 
 Producer:
 
@@ -219,7 +276,7 @@ Payload:
 - `rejected`
 - `halted`
 
-## 9. `execution_intent`
+## 12. `execution_intent`
 
 Producer:
 

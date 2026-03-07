@@ -49,3 +49,57 @@ export interface UniverseSnapshotPayload {
   gamma_base_url: string;
   markets: UniverseMarketRecord[];
 }
+
+export interface AccountBalanceRecord {
+  asset_type: "COLLATERAL";
+  token_id: null;
+  balance: number | null;
+  allowance: number | null;
+}
+
+export interface AccountOpenOrderRecord {
+  order_id: string;
+  market_id: string;
+  contract_id: string;
+  side: string;
+  status: string;
+  price: number | null;
+  original_size: number | null;
+  matched_size: number | null;
+  remaining_size: number | null;
+  outcome: string | null;
+  created_at_utc: string | null;
+  expiration_utc: string | null;
+}
+
+export interface AccountTradeRecord {
+  trade_id: string;
+  market_id: string;
+  contract_id: string;
+  side: string;
+  price: number | null;
+  size: number | null;
+  status: string;
+  outcome: string | null;
+  match_time_utc: string | null;
+  last_update_utc: string | null;
+  trader_side: "TAKER" | "MAKER" | null;
+  transaction_hash: string | null;
+}
+
+export interface AccountPositionRecord {
+  market_id: string | null;
+  contract_id: string;
+  condition_id: string | null;
+  outcome: string | null;
+  size: number | null;
+  avg_price: number | null;
+  current_price: number | null;
+  current_value_usd: number | null;
+  cash_pnl_usd: number | null;
+  redeemable: boolean;
+  title: string | null;
+  slug: string | null;
+  event_slug: string | null;
+  end_date_utc: string | null;
+}

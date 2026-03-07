@@ -12,14 +12,19 @@ Current focus:
 
 Current implementation status:
 - `M0 Foundations`: complete in repo and provisioned in AWS.
-- `M1 Market State`: market universe ingestion complete; public market WebSocket normalization complete.
-- `M1 Market State`: private order, balance, and position reconciliation still pending.
+- `M1 Market State`: market universe ingestion complete.
+- `M1 Market State`: public market WebSocket normalization complete.
+- `M1 Market State`: account-state polling, health checks, and persistence plumbing complete.
+- `M1 Market State`: nonprod DynamoDB/S3 persistence verified for the public market-data path.
+- `M1 Market State`: authenticated account-state persistence still needs live credential verification.
 - `M2+`: not started.
 
 Checkpoint notes:
 - Terraform foundation exists for separate `nonprod` and `prod` environments.
 - GitHub milestones/issues are live and being used as the implementation backlog.
-- `market-state` currently emits `market_universe_snapshot`, `market_snapshot`, and `market_data_health` envelopes.
+- `market-state` currently emits `market_universe_snapshot`, `market_snapshot`, `market_data_health`, `account_state_snapshot`, and `account_state_health` envelopes.
+- Latest-state persistence uses DynamoDB for compact records and S3 for NDJSON archives.
+- `market_universe_snapshot` is archived to S3 only because the full payload exceeds DynamoDB item-size limits.
 - Live trading remains disabled pending Polymarket US beta enablement and explicit production approval.
 
 Specs:

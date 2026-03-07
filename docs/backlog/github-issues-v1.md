@@ -59,3 +59,10 @@ This is the recommended initial GitHub Issues backlog derived from the v1 spec p
 - `Implement environment config, secrets boundaries, and release gates`: completed
 - `Implement Polymarket market discovery and tradable universe ingestion`: completed
 - `Implement real-time book, order, and account state normalization`: in progress
+- `Persist canonical snapshots and publish state events`: in progress
+
+Checkpoint notes:
+
+- nonprod IAM for `market-state` current-state and archive writes has been applied
+- public market-data persistence path has been verified end to end against nonprod DynamoDB and S3
+- authenticated account-state persistence remains unverified until nonprod Polymarket credentials are available

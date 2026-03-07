@@ -23,6 +23,11 @@ locals {
     service => distinct(lookup(var.service_secret_names, service, []))
   }
 
+  service_dynamodb_table_access = {
+    for service in var.service_names :
+    service => distinct(lookup(var.service_dynamodb_table_access, service, []))
+  }
+
   all_secret_names = toset(concat(
     tolist(var.extra_secret_names),
     flatten(values(local.service_secret_names))
@@ -32,6 +37,12 @@ locals {
     for service, secret_names in local.service_secret_names :
     service => secret_names
     if length(secret_names) > 0
+  }
+
+  services_with_dynamodb_access = {
+    for service, table_keys in local.service_dynamodb_table_access :
+    service => table_keys
+    if length(table_keys) > 0
   }
 }
 
@@ -143,6 +154,36 @@ resource "aws_iam_role_policy" "service_secret_access" {
   policy = data.aws_iam_policy_document.service_secret_access[each.key].json
 }
 
+data "aws_iam_policy_document" "service_dynamodb_access" {
+  for_each = local.services_with_dynamodb_access
+
+  statement {
+    sid    = "AccessApprovedTables"
+    effect = "Allow"
+
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:Query",
+      "dynamodb:Scan"
+    ]
+
+    resources = [
+      for table_key in each.value :
+      aws_dynamodb_table.table[table_key].arn
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "service_dynamodb_access" {
+  for_each = local.services_with_dynamodb_access
+
+  name   = "dynamodb-access"
+  role   = aws_iam_role.service_task[each.key].id
+  policy = data.aws_iam_policy_document.service_dynamodb_access[each.key].json
+}
+
 resource "aws_s3_bucket" "data_plane" {
   count = var.create_data_bucket ? 1 : 0
 
@@ -159,6 +200,38 @@ resource "aws_s3_bucket_versioning" "data_plane" {
   versioning_configuration {
     status = "Enabled"
   }
+}
+
+data "aws_iam_policy_document" "service_data_bucket_access" {
+  for_each = var.create_data_bucket ? var.service_data_bucket_access : toset([])
+
+  statement {
+    sid    = "ListDataBucket"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket"
+    ]
+    resources = [aws_s3_bucket.data_plane[0].arn]
+  }
+
+  statement {
+    sid    = "ReadWriteDataBucketObjects"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:AbortMultipartUpload"
+    ]
+    resources = ["${aws_s3_bucket.data_plane[0].arn}/*"]
+  }
+}
+
+resource "aws_iam_role_policy" "service_data_bucket_access" {
+  for_each = var.create_data_bucket ? var.service_data_bucket_access : toset([])
+
+  name   = "data-bucket-access"
+  role   = aws_iam_role.service_task[each.key].id
+  policy = data.aws_iam_policy_document.service_data_bucket_access[each.key].json
 }
 
 resource "aws_dynamodb_table" "table" {

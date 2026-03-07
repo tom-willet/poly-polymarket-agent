@@ -7,9 +7,16 @@
     "build": "tsc -p tsconfig.json",
     "snapshot": "tsx src/cli.ts snapshot",
     "stream": "tsx src/cli.ts stream",
+    "account-snapshot": "tsx src/cli.ts account-snapshot",
+    "account-stream": "tsx src/cli.ts account-stream",
     "test": "node --import tsx --test ./test/*.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1004.0",
+    "@aws-sdk/client-s3": "^3.1004.0",
+    "@aws-sdk/lib-dynamodb": "^3.1004.0",
+    "@polymarket/clob-client": "^5.7.0",
+    "ethers": "^5.8.0",
     "ws": "^8.18.1"
   },
   "devDependencies": {

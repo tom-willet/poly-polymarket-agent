@@ -10,8 +10,8 @@ const HEARTBEAT_MS = 10_000;
 export interface StreamOptions {
   assetLimit: number;
   durationSeconds: number;
-  onSnapshot: (snapshot: EventEnvelope<MarketSnapshotPayload>) => void;
-  onHealth?: (health: EventEnvelope<MarketDataHealth>) => void;
+  onSnapshot: (snapshot: EventEnvelope<MarketSnapshotPayload>) => Promise<void> | void;
+  onHealth?: (health: EventEnvelope<MarketDataHealth>) => Promise<void> | void;
 }
 
 export class MarketChannelClient {
@@ -32,6 +32,7 @@ export class MarketChannelClient {
       let heartbeat: NodeJS.Timeout | undefined;
       let durationTimer: NodeJS.Timeout | undefined;
       let settled = false;
+      let deliveryQueue = Promise.resolve();
 
       const settle = (callback: () => void) => {
         if (settled) {
@@ -72,40 +73,46 @@ export class MarketChannelClient {
       });
 
       ws.on("message", (raw: RawData) => {
-        const text = raw.toString();
-        if (text === "PONG") {
-          return;
-        }
+        deliveryQueue = deliveryQueue
+          .then(async () => {
+            const text = raw.toString();
+            if (text === "PONG") {
+              return;
+            }
 
-        const payload = JSON.parse(text) as MarketChannelEvent | MarketChannelEvent[];
-        const events = Array.isArray(payload) ? payload : [payload];
+            const payload = JSON.parse(text) as MarketChannelEvent | MarketChannelEvent[];
+            const events = Array.isArray(payload) ? payload : [payload];
 
-        for (const event of events) {
-          if (!("event_type" in event)) {
-            continue;
-          }
+            for (const event of events) {
+              if (!("event_type" in event)) {
+                continue;
+              }
 
-          if (event.event_type === "book") {
-            const snapshot = store.handleBook(event);
-            if (snapshot) {
-              options.onSnapshot(snapshot);
+              if (event.event_type === "book") {
+                const snapshot = store.handleBook(event);
+                if (snapshot) {
+                  await options.onSnapshot(snapshot);
+                }
+              } else if (event.event_type === "best_bid_ask") {
+                const snapshot = store.handleBestBidAsk(event);
+                if (snapshot) {
+                  await options.onSnapshot(snapshot);
+                }
+              } else if (event.event_type === "last_trade_price") {
+                const snapshot = store.handleLastTradePrice(event);
+                if (snapshot) {
+                  await options.onSnapshot(snapshot);
+                }
+              } else if (event.event_type === "price_change") {
+                for (const snapshot of store.handlePriceChange(event)) {
+                  await options.onSnapshot(snapshot);
+                }
+              }
             }
-          } else if (event.event_type === "best_bid_ask") {
-            const snapshot = store.handleBestBidAsk(event);
-            if (snapshot) {
-              options.onSnapshot(snapshot);
-            }
-          } else if (event.event_type === "last_trade_price") {
-            const snapshot = store.handleLastTradePrice(event);
-            if (snapshot) {
-              options.onSnapshot(snapshot);
-            }
-          } else if (event.event_type === "price_change") {
-            for (const snapshot of store.handlePriceChange(event)) {
-              options.onSnapshot(snapshot);
-            }
-          }
-        }
+          })
+          .catch((error: Error) => {
+            settle(() => reject(error));
+          });
       });
 
       ws.on("error", (error: Error) => {
@@ -113,19 +120,25 @@ export class MarketChannelClient {
       });
 
       ws.on("close", () => {
-        if (options.onHealth) {
-          options.onHealth({
-            schema_version: "v1",
-            env: this.config.env,
-            event_type: "market_data_health",
-            service: "market-state",
-            trace_id: crypto.randomUUID(),
-            ts_utc: new Date().toISOString(),
-            payload: store.health(Date.now(), this.config.marketDataStaleAfterMs)
-          });
-        }
+        void deliveryQueue
+          .then(async () => {
+            if (options.onHealth) {
+              await options.onHealth({
+                schema_version: "v1",
+                env: this.config.env,
+                event_type: "market_data_health",
+                service: "market-state",
+                trace_id: crypto.randomUUID(),
+                ts_utc: new Date().toISOString(),
+                payload: store.health(Date.now(), this.config.marketDataStaleAfterMs)
+              });
+            }
 
-        settle(resolve);
+            settle(resolve);
+          })
+          .catch((error: Error) => {
+            settle(() => reject(error));
+          });
       });
     });
   }

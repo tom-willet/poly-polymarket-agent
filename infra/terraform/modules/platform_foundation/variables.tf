@@ -24,6 +24,18 @@ variable "service_secret_names" {
   default     = {}
 }
 
+variable "service_dynamodb_table_access" {
+  description = "Map of service name to logical DynamoDB table ids the service may access."
+  type        = map(list(string))
+  default     = {}
+}
+
+variable "service_data_bucket_access" {
+  description = "Set of service names allowed to read and write the shared data bucket."
+  type        = set(string)
+  default     = []
+}
+
 variable "extra_secret_names" {
   description = "Additional secret names to create that are not attached to a service role."
   type        = set(string)

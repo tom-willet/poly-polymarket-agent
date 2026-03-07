@@ -48,6 +48,12 @@ module "platform_foundation" {
     ]
   }
 
+  service_dynamodb_table_access = {
+    "market-state" = ["current_state"]
+  }
+
+  service_data_bucket_access = toset(["market-state"])
+
   tags = {
     Repository = "poly-polymarket-agent"
     Stack      = "poly-prod"
