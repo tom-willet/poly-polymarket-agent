@@ -16,7 +16,7 @@ import {
 import type { ControlConfig } from "./config.js";
 import type { DecisionCyclePayload, EventEnvelope, StrategyProposalPayload } from "./contracts.js";
 import { generateCrossMarketConsistencyProposals } from "./proposals.js";
-import type { AccountSnapshotPayload, CurrentStateStore } from "./store.js";
+import type { AccountSnapshotPayload, CurrentStateStore, DecisionLedgerStore } from "./store.js";
 import { loadOperatorState } from "./store.js";
 
 export interface DecisionCycleContext {
@@ -24,6 +24,7 @@ export interface DecisionCycleContext {
   config: ControlConfig;
   currentState: CurrentStateStore;
   currentStateReader: CurrentStateReader;
+  decisionLedger: DecisionLedgerStore;
 }
 
 function envelope(
@@ -39,6 +40,25 @@ function envelope(
     ts_utc: new Date().toISOString(),
     payload
   };
+}
+
+async function persistLedgerEnvelope<T>(
+  ledger: DecisionLedgerStore,
+  env: DecisionCycleContext["env"],
+  eventType: string,
+  entityId: string,
+  tsUtc: string,
+  payload: T
+): Promise<void> {
+  await ledger.put(`${eventType}#${entityId}`, tsUtc, {
+    schema_version: "v1",
+    env,
+    event_type: eventType,
+    service: "openclaw-control",
+    trace_id: crypto.randomUUID(),
+    ts_utc: tsUtc,
+    payload
+  });
 }
 
 function toTradeCoreProposal(proposal: StrategyProposalPayload): TradeCoreProposalPayload {
@@ -72,7 +92,7 @@ export async function runDecisionCycle(
   const proposals = proposalEnvelopes.map((entry) => entry.payload);
 
   if (proposals.length === 0) {
-    return envelope(context.env, {
+    const cycleEnvelope = envelope(context.env, {
       proposal_count: 0,
       allocator_decision_count: 0,
       risk_decision_count: 0,
@@ -87,6 +107,15 @@ export async function runDecisionCycle(
       risk_decisions: [],
       execution_intents: []
     });
+    await persistLedgerEnvelope(
+      context.decisionLedger,
+      context.env,
+      "decision_cycle",
+      cycleEnvelope.trace_id,
+      cycleEnvelope.ts_utc,
+      cycleEnvelope.payload
+    );
+    return cycleEnvelope;
   }
 
   const allocatorConfig = loadAllocatorConfig();
@@ -157,7 +186,7 @@ export async function runDecisionCycle(
     executionIntents.push(buildExecutionIntent(executionPlanningInput, executionConfig, context.env));
   }
 
-  return envelope(context.env, {
+  const cycleEnvelope = envelope(context.env, {
     proposal_count: proposals.length,
     allocator_decision_count: allocatorDecisions.length,
     risk_decision_count: riskDecisions.length,
@@ -171,4 +200,59 @@ export async function runDecisionCycle(
     risk_decisions: riskDecisions.map((entry) => entry.payload),
     execution_intents: executionIntents.map((entry) => entry.payload)
   });
+
+  for (const proposal of proposals) {
+    await persistLedgerEnvelope(
+      context.decisionLedger,
+      context.env,
+      "strategy_proposal",
+      proposal.proposal_id,
+      cycleEnvelope.ts_utc,
+      proposal
+    );
+  }
+
+  for (const decision of allocatorDecisions) {
+    await persistLedgerEnvelope(
+      context.decisionLedger,
+      context.env,
+      "allocator_decision",
+      decision.payload.decision_id,
+      decision.ts_utc,
+      decision.payload
+    );
+  }
+
+  for (const decision of riskDecisions) {
+    await persistLedgerEnvelope(
+      context.decisionLedger,
+      context.env,
+      "risk_decision",
+      decision.payload.decision_id,
+      decision.ts_utc,
+      decision.payload
+    );
+  }
+
+  for (const intent of executionIntents) {
+    await persistLedgerEnvelope(
+      context.decisionLedger,
+      context.env,
+      "execution_intent",
+      intent.payload.order_plan_id,
+      intent.ts_utc,
+      intent.payload
+    );
+  }
+
+  await persistLedgerEnvelope(
+    context.decisionLedger,
+    context.env,
+    "decision_cycle",
+    cycleEnvelope.trace_id,
+    cycleEnvelope.ts_utc,
+    cycleEnvelope.payload
+  );
+
+  return cycleEnvelope;
 }

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { runDecisionCycle } from "../src/decisionCycle.js";
-import type { CurrentStateStore } from "../src/store.js";
+import type { CurrentStateStore, DecisionLedgerStore } from "../src/store.js";
 import type { CurrentStateReader } from "@poly/trade-core";
 
 class InMemoryCurrentStateStore implements CurrentStateStore, CurrentStateReader {
@@ -27,6 +27,27 @@ class InMemoryCurrentStateStore implements CurrentStateStore, CurrentStateReader
 
   async put(): Promise<void> {
     throw new Error("not implemented");
+  }
+}
+
+class InMemoryDecisionLedgerStore implements DecisionLedgerStore {
+  readonly items: Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }> = [];
+
+  async put(pk: string, sk: string, item: Record<string, unknown>): Promise<void> {
+    this.items.push({
+      pk,
+      sk,
+      payload: item.payload,
+      ts_utc: String(item.ts_utc ?? new Date().toISOString()),
+      event_type: String(item.event_type ?? "unknown")
+    });
+  }
+
+  async query(
+    pk: string,
+    limit = 5
+  ): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
+    return this.items.filter((item) => item.pk === pk).slice(-limit).reverse();
   }
 }
 
@@ -149,6 +170,7 @@ test("decision cycle produces proposal, allocator decision, risk decision, and e
   process.env.PROPOSAL_SIZING_HINT_USD = "40";
 
   const store = currentState();
+  const decisionLedger = new InMemoryDecisionLedgerStore();
   const cycle = await runDecisionCycle({
     env: "paper",
     config: {
@@ -163,11 +185,18 @@ test("decision cycle produces proposal, allocator decision, risk decision, and e
       proposalSizingHintUsd: 40
     },
     currentState: store,
-    currentStateReader: store
+    currentStateReader: store,
+    decisionLedger
   });
 
   assert.equal(cycle.payload.proposal_count, 1);
   assert.equal(cycle.payload.allocator_decision_count, 1);
   assert.equal(cycle.payload.risk_decision_count, 1);
   assert.equal(cycle.payload.execution_intent_count, 1);
+  assert.equal(decisionLedger.items.length, 5);
+  assert.equal(decisionLedger.items.some((item) => item.event_type === "strategy_proposal"), true);
+  assert.equal(decisionLedger.items.some((item) => item.event_type === "allocator_decision"), true);
+  assert.equal(decisionLedger.items.some((item) => item.event_type === "risk_decision"), true);
+  assert.equal(decisionLedger.items.some((item) => item.event_type === "execution_intent"), true);
+  assert.equal(decisionLedger.items.some((item) => item.event_type === "decision_cycle"), true);
 });

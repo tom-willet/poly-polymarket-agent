@@ -64,7 +64,8 @@ async function main(): Promise<void> {
       env: config.env,
       config,
       currentState,
-      currentStateReader: new DynamoDbCurrentStateReader(config.currentStateTableName)
+      currentStateReader: new DynamoDbCurrentStateReader(config.currentStateTableName),
+      decisionLedger
     });
     process.stdout.write(`${JSON.stringify(cycle, null, 2)}\n`);
     return;
