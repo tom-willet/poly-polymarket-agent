@@ -38,6 +38,19 @@ export interface AccountHealthPayload {
   recent_trade_count: number;
 }
 
+export interface AccountSnapshotPayload {
+  user_address: string;
+  funder_address: string;
+  collateral: {
+    balance: number;
+    allowance: number;
+  };
+  open_order_count: number;
+  position_count: number;
+  recent_trade_count: number;
+  total_position_value_usd: number;
+}
+
 export interface CurrentStateStore {
   get<T>(pk: string, sk: string): Promise<StoredEnvelope<T> | null>;
   queryByPkPrefix(prefix: string): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string }>>;

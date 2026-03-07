@@ -20,6 +20,7 @@ Current implementation status:
 - `M2 Trade Core`: allocator, risk kernel, execution intent planning, heartbeat handling, and reconciliation started.
 - `M3 Control Plane`: operator command core started.
 - `M3 Control Plane`: cross-market consistency proposal generator started.
+- `M3 Control Plane`: first integrated decision cycle started.
 
 Checkpoint notes:
 - Terraform foundation exists for separate `nonprod` and `prod` environments.
@@ -31,6 +32,7 @@ Checkpoint notes:
 - `trade-core` can now hydrate risk and execution inputs from the canonical current-state table.
 - `openclaw-control` can now persist operator mode / pause / flatten state and produce Slack-ready operator responses.
 - `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for binary complement inconsistencies.
+- `openclaw-control` can now run an in-process decision cycle from proposal generation through allocator, risk, and execution intent planning.
 - Live trading remains disabled pending Polymarket US beta enablement and explicit production approval.
 
 Specs:

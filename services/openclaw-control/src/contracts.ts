@@ -50,3 +50,15 @@ export interface StrategyProposalPayload {
   sizing_hint_usd: number;
   notes: string;
 }
+
+export interface DecisionCyclePayload {
+  proposal_count: number;
+  allocator_decision_count: number;
+  risk_decision_count: number;
+  execution_intent_count: number;
+  notes: string[];
+  proposals: StrategyProposalPayload[];
+  allocator_decisions: unknown[];
+  risk_decisions: unknown[];
+  execution_intents: unknown[];
+}

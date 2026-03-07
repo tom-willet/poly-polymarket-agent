@@ -4,8 +4,10 @@ import process from "node:process";
 import { handleOperatorCommand } from "./commands.js";
 import { loadControlConfig } from "./config.js";
 import type { OperatorCommandPayload } from "./contracts.js";
+import { runDecisionCycle } from "./decisionCycle.js";
 import { generateCrossMarketConsistencyProposals } from "./proposals.js";
 import { DynamoDbCurrentStateStore, DynamoDbDecisionLedgerStore } from "./store.js";
+import { DynamoDbCurrentStateReader } from "@poly/trade-core";
 
 function parseArgs(argv: string[]): { command: string; inputPath?: string } {
   const [, , command, ...rest] = argv;
@@ -36,7 +38,7 @@ async function readCommand(inputPath?: string): Promise<OperatorCommandPayload> 
 
 async function main(): Promise<void> {
   const { command, inputPath } = parseArgs(process.argv);
-  if (!["handle", "propose"].includes(command)) {
+  if (!["handle", "propose", "cycle"].includes(command)) {
     throw new Error(`Unsupported command "${command}"`);
   }
 
@@ -54,6 +56,17 @@ async function main(): Promise<void> {
     });
 
     process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
+    return;
+  }
+
+  if (command === "cycle") {
+    const cycle = await runDecisionCycle({
+      env: config.env,
+      config,
+      currentState,
+      currentStateReader: new DynamoDbCurrentStateReader(config.currentStateTableName)
+    });
+    process.stdout.write(`${JSON.stringify(cycle, null, 2)}\n`);
     return;
   }
 

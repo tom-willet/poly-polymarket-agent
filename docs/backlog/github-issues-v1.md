@@ -77,3 +77,4 @@ Checkpoint notes:
 - `trade-core` now has a read-side bridge from DynamoDB current-state records into risk and execution planning inputs
 - `openclaw-control` now has an operator command core with persisted mode / pause / flatten state and ledger logging
 - `openclaw-control` now has a first deterministic proposal generator for binary complement consistency checks
+- `openclaw-control` now has an integrated decision-cycle command that runs proposal generation through allocator, risk, and execution intent planning
