@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { AccountStateStore } from "./accountStateStore.js";
+import { toPositionSnapshotEnvelopes } from "./accountSnapshot.js";
 import { loadConfig } from "./config.js";
 import { PolymarketAccountClient } from "./polymarket/accountClient.js";
 import { GammaMarketClient } from "./polymarket/gammaClient.js";
@@ -96,9 +97,17 @@ async function main(): Promise<void> {
     const tsMs = Date.now();
     const accountSnapshot = store.apply(await accountClient.fetchAccountSnapshot(), tsMs);
     const accountHealth = store.health(tsMs, config.accountStateStaleAfterMs);
+    const positionSnapshots = toPositionSnapshotEnvelopes(config.env, accountSnapshot.payload, tsMs);
     await publisher.publish(accountSnapshot);
     await publisher.publish(accountHealth);
-    const rendered = `${JSON.stringify({ snapshot: accountSnapshot, health: accountHealth }, null, 2)}\n`;
+    for (const positionSnapshot of positionSnapshots) {
+      await publisher.publish(positionSnapshot);
+    }
+    const rendered = `${JSON.stringify(
+      { snapshot: accountSnapshot, health: accountHealth, positions: positionSnapshots },
+      null,
+      2
+    )}\n`;
 
     if (outputPath) {
       const absoluteOutputPath = path.resolve(process.cwd(), outputPath);
@@ -156,6 +165,10 @@ async function main(): Promise<void> {
         const tsMs = Date.now();
         const accountSnapshot = store.apply(await accountClient.fetchAccountSnapshot(), tsMs);
         await emitEnvelope(accountSnapshot);
+        const positionSnapshots = toPositionSnapshotEnvelopes(config.env, accountSnapshot.payload, tsMs);
+        for (const positionSnapshot of positionSnapshots) {
+          await emitEnvelope(positionSnapshot);
+        }
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
         store.recordFailure(message);

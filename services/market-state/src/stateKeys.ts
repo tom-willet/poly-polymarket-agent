@@ -1,4 +1,4 @@
-import type { EventEnvelope } from "./contracts.js";
+import type { EventEnvelope, PositionSnapshotPayload } from "./contracts.js";
 import type { AccountStateHealthPayload, AccountStateSnapshotPayload } from "./accountSnapshot.js";
 import type { MarketDataHealth, MarketSnapshotPayload } from "./marketSnapshot.js";
 
@@ -38,6 +38,13 @@ export function currentStateKeyForEnvelope(
         sk: "health"
       };
     }
+    case "position_snapshot": {
+      const payload = envelope.payload as PositionSnapshotPayload;
+      return {
+        pk: `position#${payload.wallet_id}#${payload.market_complex_id}`,
+        sk: "snapshot"
+      };
+    }
     default:
       return null;
   }
@@ -62,4 +69,5 @@ export type KnownStateEnvelope =
   | EventEnvelope<MarketSnapshotPayload>
   | EventEnvelope<MarketDataHealth>
   | EventEnvelope<AccountStateSnapshotPayload>
-  | EventEnvelope<AccountStateHealthPayload>;
+  | EventEnvelope<AccountStateHealthPayload>
+  | EventEnvelope<PositionSnapshotPayload>;

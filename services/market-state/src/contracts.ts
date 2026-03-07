@@ -103,3 +103,15 @@ export interface AccountPositionRecord {
   event_slug: string | null;
   end_date_utc: string | null;
 }
+
+export interface PositionSnapshotPayload {
+  wallet_id: string;
+  sleeve_id: string;
+  market_complex_id: string;
+  gross_exposure_usd: number;
+  net_exposure_usd: number;
+  realized_pnl_usd: number;
+  unrealized_pnl_usd: number;
+  open_orders_reserved_usd: number;
+  snapshot_ts_utc: string;
+}

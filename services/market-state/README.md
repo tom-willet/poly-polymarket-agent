@@ -8,6 +8,7 @@ Initial `M1` implementation for market discovery, top-of-book normalization, and
 - Normalize them into a stable internal universe record.
 - Subscribe to the public Polymarket market WebSocket by asset id.
 - Poll authenticated account state from the Polymarket CLOB and Data API.
+- Derive `position_snapshot` records from authenticated account positions.
 - Emit NDJSON state events.
 - Persist latest canonical state to DynamoDB when `STATE_CURRENT_TABLE` is configured.
 - Archive emitted state events to S3 when `STATE_ARCHIVE_BUCKET` is configured.
@@ -17,6 +18,7 @@ Initial `M1` implementation for market discovery, top-of-book normalization, and
 - Compact latest-state records are written to DynamoDB current-state.
 - Full event streams are archived to S3 as NDJSON.
 - `market_universe_snapshot` is archived to S3 only.
+- `position_snapshot` is written to current-state by wallet and market complex.
 
 Reason:
 
@@ -35,6 +37,7 @@ pnpm --filter @poly/market-state test
 ```
 
 `stream` writes one JSON envelope per line. This makes it usable for local piping, replay capture, and downstream ingestion.
+`account-snapshot` and `account-stream` emit `account_state_snapshot`, `account_state_health`, and one `position_snapshot` per open position.
 
 ## Environment variables
 

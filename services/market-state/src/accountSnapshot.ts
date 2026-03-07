@@ -3,7 +3,8 @@ import type {
   AccountOpenOrderRecord,
   AccountPositionRecord,
   AccountTradeRecord,
-  EventEnvelope
+  EventEnvelope,
+  PositionSnapshotPayload
 } from "./contracts.js";
 
 export interface AccountStateSnapshotPayload {
@@ -32,7 +33,7 @@ export interface AccountStateHealthPayload {
 
 function envelope<T>(
   env: "sim" | "paper" | "prod",
-  eventType: "account_state_snapshot" | "account_state_health",
+  eventType: "account_state_snapshot" | "account_state_health" | "position_snapshot",
   payload: T,
   tsMs: number
 ): EventEnvelope<T> {
@@ -61,4 +62,62 @@ export function toAccountStateHealthEnvelope(
   tsMs: number
 ): EventEnvelope<AccountStateHealthPayload> {
   return envelope(env, "account_state_health", payload, tsMs);
+}
+
+export function toPositionSnapshotEnvelope(
+  env: "sim" | "paper" | "prod",
+  payload: PositionSnapshotPayload,
+  tsMs: number
+): EventEnvelope<PositionSnapshotPayload> {
+  return envelope(env, "position_snapshot", payload, tsMs);
+}
+
+function roundUsd(value: number | null): number {
+  return Number((value ?? 0).toFixed(2));
+}
+
+function inferredMarketComplexId(position: AccountPositionRecord): string {
+  if (position.event_slug) {
+    return `event:${position.event_slug}`;
+  }
+  if (position.market_id) {
+    return `market:${position.market_id}`;
+  }
+  return `contract:${position.contract_id}`;
+}
+
+function inferredUnrealizedPnl(position: AccountPositionRecord): number {
+  if (
+    position.current_value_usd !== null &&
+    position.avg_price !== null &&
+    position.size !== null
+  ) {
+    return roundUsd(position.current_value_usd - position.avg_price * position.size);
+  }
+
+  return 0;
+}
+
+export function toPositionSnapshotEnvelopes(
+  env: "sim" | "paper" | "prod",
+  accountSnapshot: AccountStateSnapshotPayload,
+  tsMs: number
+): EventEnvelope<PositionSnapshotPayload>[] {
+  return accountSnapshot.positions.map((position) =>
+    toPositionSnapshotEnvelope(
+      env,
+      {
+        wallet_id: accountSnapshot.funder_address,
+        sleeve_id: "cross_market_core",
+        market_complex_id: inferredMarketComplexId(position),
+        gross_exposure_usd: roundUsd(position.current_value_usd),
+        net_exposure_usd: roundUsd(position.current_value_usd),
+        realized_pnl_usd: roundUsd(position.cash_pnl_usd),
+        unrealized_pnl_usd: inferredUnrealizedPnl(position),
+        open_orders_reserved_usd: 0,
+        snapshot_ts_utc: new Date(tsMs).toISOString()
+      },
+      tsMs
+    )
+  );
 }

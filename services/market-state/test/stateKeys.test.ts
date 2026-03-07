@@ -74,6 +74,30 @@ test("currentStateKeyForEnvelope routes account health by account address", () =
   assert.deepEqual(key, { pk: "account#0xabc", sk: "health" });
 });
 
+test("currentStateKeyForEnvelope routes position snapshots by wallet and market complex", () => {
+  const key = currentStateKeyForEnvelope({
+    schema_version: "v1",
+    env: "paper",
+    event_type: "position_snapshot",
+    service: "market-state",
+    trace_id: "trace-1",
+    ts_utc: "2026-03-06T20:00:00Z",
+    payload: {
+      wallet_id: "0xabc",
+      sleeve_id: "cross_market_core",
+      market_complex_id: "event:event-x",
+      gross_exposure_usd: 12.34,
+      net_exposure_usd: 12.34,
+      realized_pnl_usd: 1.23,
+      unrealized_pnl_usd: -0.45,
+      open_orders_reserved_usd: 0,
+      snapshot_ts_utc: "2026-03-06T20:00:00Z"
+    }
+  });
+
+  assert.deepEqual(key, { pk: "position#0xabc#event:event-x", sk: "snapshot" });
+});
+
 test("archiveKeyForCommand partitions by env and day", () => {
   const key = archiveKeyForCommand("paper", "market-state", "stream", Date.parse("2026-03-06T20:01:02Z"));
   assert.equal(key, "market-state/paper/2026/03/06/stream/2026-03-06T20-01-02.000Z.ndjson");

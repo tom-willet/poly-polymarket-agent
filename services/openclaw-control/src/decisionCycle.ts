@@ -178,13 +178,13 @@ async function loadPerformanceState(
 async function loadExecutionHeartbeatHealthy(
   currentState: CurrentStateStore,
   env: DecisionCycleContext["env"]
-): Promise<{ executionHeartbeatHealthy: boolean; notes: string[] }> {
+): Promise<{ heartbeat: ExecutionHeartbeatPayload; notes: string[] }> {
   const notes: string[] = [];
   const heartbeat = await currentState.get<ExecutionHeartbeatPayload>("health#execution-heartbeat", "latest");
   if (heartbeat) {
     notes.push("execution heartbeat derived from current-state health row");
     return {
-      executionHeartbeatHealthy: heartbeat.payload.healthy,
+      heartbeat: heartbeat.payload,
       notes
     };
   }
@@ -196,15 +196,48 @@ async function loadExecutionHeartbeatHealthy(
       : "execution heartbeat defaulted unhealthy because no heartbeat row exists in prod"
   );
   return {
-    executionHeartbeatHealthy: healthy,
+    heartbeat: {
+      active: false,
+      healthy,
+      last_sent_ts_utc: null,
+      last_ack_ts_utc: null,
+      heartbeat_id: null,
+      timeout_ms: 0
+    },
     notes
   };
+}
+
+async function persistExecutionHeartbeat(
+  currentState: CurrentStateStore,
+  env: DecisionCycleContext["env"],
+  heartbeat: ExecutionHeartbeatPayload
+): Promise<void> {
+  await currentState.put("health#execution-heartbeat", "latest", {
+    schema_version: "v1",
+    env,
+    event_type: "execution_heartbeat",
+    service: "openclaw-control",
+    trace_id: crypto.randomUUID(),
+    ts_utc: new Date().toISOString(),
+    payload: heartbeat
+  });
 }
 
 export async function runDecisionCycle(
   context: DecisionCycleContext
 ): Promise<EventEnvelope<DecisionCyclePayload>> {
   const operatorState = await loadOperatorState(context.currentState, context.config.defaultMode);
+  const executionConfig = loadExecutionConfig();
+  const heartbeatState = await loadExecutionHeartbeatHealthy(context.currentState, context.env);
+  const resolvedHeartbeat: ExecutionHeartbeatPayload = {
+    ...heartbeatState.heartbeat,
+    timeout_ms:
+      heartbeatState.heartbeat.timeout_ms > 0
+        ? heartbeatState.heartbeat.timeout_ms
+        : executionConfig.heartbeatTimeoutMs
+  };
+  await persistExecutionHeartbeat(context.currentState, context.env, resolvedHeartbeat);
   const proposalEnvelopes = await generateCrossMarketConsistencyProposals({
     env: context.env,
     config: context.config,
@@ -221,7 +254,8 @@ export async function runDecisionCycle(
       notes: [
         "no eligible cross-market consistency proposals found",
         `operator paused=${operatorState.paused}`,
-        `operator flatten_requested=${operatorState.flatten_requested}`
+        `operator flatten_requested=${operatorState.flatten_requested}`,
+        ...heartbeatState.notes
       ],
       proposals: [],
       allocator_decisions: [],
@@ -251,9 +285,7 @@ export async function runDecisionCycle(
   );
 
   const riskConfig = loadRiskConfig();
-  const executionConfig = loadExecutionConfig();
   const performanceState = await loadPerformanceState(context.currentState, allocatorConfig.bankrollUsd);
-  const heartbeatState = await loadExecutionHeartbeatHealthy(context.currentState, context.env);
   const riskDecisions: Array<TradeCoreEnvelope<RiskDecisionPayload>> = [];
   const executionIntents: Array<TradeCoreEnvelope<ExecutionIntentPayload>> = [];
 
@@ -278,7 +310,7 @@ export async function runDecisionCycle(
       },
       performance: performanceState.performance,
       estimatedTotalCostsUsd: 0,
-      executionHeartbeatHealthy: heartbeatState.executionHeartbeatHealthy
+      executionHeartbeatHealthy: resolvedHeartbeat.healthy
     });
 
     const riskDecision = evaluateRisk(riskInput, {

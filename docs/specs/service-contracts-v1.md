@@ -476,6 +476,29 @@ Payload:
 }
 ```
 
+## 19. `execution_heartbeat`
+
+Producer:
+
+- `openclaw-control`
+
+Purpose:
+
+- Persist the latest execution-heartbeat health consumed by the decision cycle.
+
+Payload:
+
+```json
+{
+  "active": false,
+  "healthy": true,
+  "last_sent_ts_utc": null,
+  "last_ack_ts_utc": null,
+  "heartbeat_id": null,
+  "timeout_ms": 15000
+}
+```
+
 Rule:
 
 - Slack-facing adapters may summarize internal state, but they must not replace the internal contracts defined here.

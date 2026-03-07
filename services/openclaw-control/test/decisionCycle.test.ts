@@ -25,8 +25,10 @@ class InMemoryCurrentStateStore implements CurrentStateStore, CurrentStateReader
       });
   }
 
-  async put(): Promise<void> {
-    throw new Error("not implemented");
+  async put(pk: string, sk: string, item: Record<string, unknown>): Promise<void> {
+    this.items.set(`${pk}|${sk}`, {
+      ...item
+    });
   }
 }
 
@@ -199,4 +201,61 @@ test("decision cycle produces proposal, allocator decision, risk decision, and e
   assert.equal(decisionLedger.items.some((item) => item.event_type === "risk_decision"), true);
   assert.equal(decisionLedger.items.some((item) => item.event_type === "execution_intent"), true);
   assert.equal(decisionLedger.items.some((item) => item.event_type === "decision_cycle"), true);
+  const heartbeat = await store.get<{
+    active: boolean;
+    healthy: boolean;
+    timeout_ms: number;
+  }>("health#execution-heartbeat", "latest");
+  assert.equal(heartbeat?.event_type, "execution_heartbeat");
+  assert.equal(heartbeat?.payload.healthy, true);
+  assert.equal(heartbeat?.payload.timeout_ms, 15000);
+});
+
+test("decision cycle persists heartbeat state even when no proposals are available", async () => {
+  process.env.RUNTIME_MODE = "paper";
+  process.env.EXECUTION_HEARTBEAT_TIMEOUT_MS = "15000";
+
+  const store = new InMemoryCurrentStateStore(
+    new Map([
+      [
+        "health#market-data|latest",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_data_health",
+          payload: {
+            stale: false
+          }
+        }
+      ]
+    ])
+  );
+  const decisionLedger = new InMemoryDecisionLedgerStore();
+
+  const cycle = await runDecisionCycle({
+    env: "paper",
+    config: {
+      env: "paper",
+      currentStateTableName: "unused",
+      decisionLedgerTableName: "unused",
+      defaultMode: "paper",
+      proposalMinEdgeCents: 3,
+      proposalMaxSpreadCents: 4,
+      proposalCostPerLegCents: 1,
+      proposalDefaultHoldingHours: 24,
+      proposalSizingHintUsd: 40
+    },
+    currentState: store,
+    currentStateReader: store,
+    decisionLedger
+  });
+
+  assert.equal(cycle.payload.proposal_count, 0);
+  const heartbeat = await store.get<{
+    active: boolean;
+    healthy: boolean;
+    timeout_ms: number;
+  }>("health#execution-heartbeat", "latest");
+  assert.equal(heartbeat?.event_type, "execution_heartbeat");
+  assert.equal(heartbeat?.payload.healthy, true);
+  assert.equal(heartbeat?.payload.timeout_ms, 15000);
 });
