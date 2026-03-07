@@ -4,6 +4,7 @@ import process from "node:process";
 import { handleOperatorCommand } from "./commands.js";
 import { loadControlConfig } from "./config.js";
 import type { OperatorCommandPayload } from "./contracts.js";
+import { generateCrossMarketConsistencyProposals } from "./proposals.js";
 import { DynamoDbCurrentStateStore, DynamoDbDecisionLedgerStore } from "./store.js";
 
 function parseArgs(argv: string[]): { command: string; inputPath?: string } {
@@ -35,20 +36,33 @@ async function readCommand(inputPath?: string): Promise<OperatorCommandPayload> 
 
 async function main(): Promise<void> {
   const { command, inputPath } = parseArgs(process.argv);
-  if (command !== "handle") {
+  if (!["handle", "propose"].includes(command)) {
     throw new Error(`Unsupported command "${command}"`);
   }
 
   const config = loadControlConfig();
-  const operatorCommand = await readCommand(inputPath);
-  const response = await handleOperatorCommand(operatorCommand, {
-    env: config.env,
-    defaultMode: config.defaultMode,
-    currentState: new DynamoDbCurrentStateStore(config.currentStateTableName),
-    decisionLedger: new DynamoDbDecisionLedgerStore(config.decisionLedgerTableName)
-  });
+  const currentState = new DynamoDbCurrentStateStore(config.currentStateTableName);
+  const decisionLedger = new DynamoDbDecisionLedgerStore(config.decisionLedgerTableName);
 
-  process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
+  if (command === "handle") {
+    const operatorCommand = await readCommand(inputPath);
+    const response = await handleOperatorCommand(operatorCommand, {
+      env: config.env,
+      defaultMode: config.defaultMode,
+      currentState,
+      decisionLedger
+    });
+
+    process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
+    return;
+  }
+
+  const proposals = await generateCrossMarketConsistencyProposals({
+    env: config.env,
+    config,
+    currentState
+  });
+  process.stdout.write(`${JSON.stringify(proposals, null, 2)}\n`);
 }
 
 main().catch((error: unknown) => {

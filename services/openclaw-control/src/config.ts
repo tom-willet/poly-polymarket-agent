@@ -3,6 +3,24 @@ export interface ControlConfig {
   currentStateTableName: string;
   decisionLedgerTableName: string;
   defaultMode: "sim" | "paper" | "prod";
+  proposalMinEdgeCents: number;
+  proposalMaxSpreadCents: number;
+  proposalCostPerLegCents: number;
+  proposalDefaultHoldingHours: number;
+  proposalSizingHintUsd: number;
+}
+
+function parsePositiveNumber(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Expected positive number but received "${value}"`);
+  }
+
+  return parsed;
 }
 
 export function loadControlConfig(): ControlConfig {
@@ -25,6 +43,11 @@ export function loadControlConfig(): ControlConfig {
     env,
     currentStateTableName,
     decisionLedgerTableName,
-    defaultMode: env
+    defaultMode: env,
+    proposalMinEdgeCents: parsePositiveNumber(process.env.PROPOSAL_MIN_EDGE_CENTS, 3),
+    proposalMaxSpreadCents: parsePositiveNumber(process.env.PROPOSAL_MAX_SPREAD_CENTS, 4),
+    proposalCostPerLegCents: parsePositiveNumber(process.env.PROPOSAL_COST_PER_LEG_CENTS, 1),
+    proposalDefaultHoldingHours: parsePositiveNumber(process.env.PROPOSAL_DEFAULT_HOLDING_HOURS, 24),
+    proposalSizingHintUsd: parsePositiveNumber(process.env.PROPOSAL_SIZING_HINT_USD, 40)
   };
 }

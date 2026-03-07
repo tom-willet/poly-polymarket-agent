@@ -64,6 +64,7 @@ This is the recommended initial GitHub Issues backlog derived from the v1 spec p
 - `Implement deterministic risk kernel and halt logic`: in progress
 - `Implement execution engine, heartbeat handling, and reconciliation`: in progress
 - `Implement Slack operator commands and control workflows`: in progress
+- `Implement cross-market consistency proposal generator`: in progress
 
 Checkpoint notes:
 
@@ -75,3 +76,4 @@ Checkpoint notes:
 - `trade-core` now has deterministic execution intent planning, lifecycle action evaluation, heartbeat health tracking, and user-channel reconciliation modules
 - `trade-core` now has a read-side bridge from DynamoDB current-state records into risk and execution planning inputs
 - `openclaw-control` now has an operator command core with persisted mode / pause / flatten state and ledger logging
+- `openclaw-control` now has a first deterministic proposal generator for binary complement consistency checks

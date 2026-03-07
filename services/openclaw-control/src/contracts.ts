@@ -30,3 +30,23 @@ export interface OperatorNotificationPayload {
   summary: string;
   details: string[];
 }
+
+export interface StrategyProposalLegPayload {
+  market_id: string;
+  contract_id: string;
+  side: "buy" | "sell";
+}
+
+export interface StrategyProposalPayload {
+  proposal_id: string;
+  sleeve_id: string;
+  market_complex_id: string;
+  thesis: string;
+  contracts: StrategyProposalLegPayload[];
+  expected_edge_after_costs: number;
+  confidence: number;
+  max_holding_hours: number;
+  invalidators: string[];
+  sizing_hint_usd: number;
+  notes: string;
+}

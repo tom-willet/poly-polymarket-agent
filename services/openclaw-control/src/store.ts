@@ -15,6 +15,21 @@ export interface MarketHealthPayload {
   last_message_ts_utc: string;
 }
 
+export interface MarketSnapshotPayload {
+  market_id: string;
+  contract_id: string;
+  market_complex_id: string;
+  status: "active" | "inactive";
+  mid_price: number | null;
+  best_bid: number | null;
+  best_ask: number | null;
+  spread_cents: number | null;
+  top_bid_size: number | null;
+  top_ask_size: number | null;
+  time_to_resolution_hours: number | null;
+  book_ts_utc: string;
+}
+
 export interface AccountHealthPayload {
   stale: boolean;
   reconciliation_ok: boolean;

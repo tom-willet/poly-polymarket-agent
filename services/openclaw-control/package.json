@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "handle": "tsx src/cli.ts handle",
+    "propose": "tsx src/cli.ts propose",
     "test": "node --import tsx --test ./test/*.test.ts"
   },
   "dependencies": {
