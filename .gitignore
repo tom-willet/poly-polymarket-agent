@@ -2,9 +2,30 @@
 *.log
 *.tmp
 *.swp
+.DS_Store
+node_modules/
 
 # Local deployment state
 deploy/lightsail/.env
 deploy/lightsail/runtime/
 deploy/lightsail/state/
 __pycache__/
+
+# Terraform local state
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+backend.hcl
+
+# Local runtime env files
+config/environments/**/runtime.env
+services/*/runtime/
+services/*/dist/
+services/*/test/*.js
+services/*/test/*.d.ts
+
+# Local release approvals
+ops/release/*.json
+!ops/release/*.example.json

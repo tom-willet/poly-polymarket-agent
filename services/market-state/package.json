@@ -1,0 +1,21 @@
+{
+  "name": "@poly/market-state",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "snapshot": "tsx src/cli.ts snapshot",
+    "stream": "tsx src/cli.ts stream",
+    "test": "node --import tsx --test ./test/*.test.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

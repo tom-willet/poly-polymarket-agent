@@ -1,0 +1,11 @@
+{
+  "approval_id": "chg-2026-03-06-001",
+  "status": "approved",
+  "approved_by": "executive-owner",
+  "approved_at_utc": "2026-03-06T00:00:00Z",
+  "compliance_ticket": "legal-beta-clearance",
+  "polymarket_enablement": "approved",
+  "risk_policy_version": "v1",
+  "trading_enabled": true,
+  "notes": "Example structure only. Do not commit live approvals."
+}

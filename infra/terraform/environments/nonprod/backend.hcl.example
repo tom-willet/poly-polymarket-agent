@@ -1,0 +1,6 @@
+bucket         = "poly-orchestrator-tfstate-418295697992"
+key            = "foundations/nonprod.tfstate"
+region         = "us-west-2"
+profile        = "mullet-dev"
+dynamodb_table = "poly-orchestrator-tf-locks"
+encrypt        = true

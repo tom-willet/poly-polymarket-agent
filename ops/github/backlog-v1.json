@@ -1,0 +1,206 @@
+{
+  "labels": [
+    {
+      "name": "epic",
+      "color": "5319e7",
+      "description": "Multi-issue body of work"
+    },
+    {
+      "name": "type:task",
+      "color": "0e8a16",
+      "description": "Implementation task"
+    },
+    {
+      "name": "area:infra",
+      "color": "1d76db",
+      "description": "Infrastructure and environment work"
+    },
+    {
+      "name": "area:market-state",
+      "color": "0052cc",
+      "description": "Market-state service work"
+    },
+    {
+      "name": "area:trade-core",
+      "color": "b60205",
+      "description": "Trade-core service work"
+    },
+    {
+      "name": "area:control-plane",
+      "color": "fbca04",
+      "description": "OpenClaw and Slack control plane work"
+    },
+    {
+      "name": "area:data",
+      "color": "006b75",
+      "description": "Ledger, replay, and scorecard work"
+    },
+    {
+      "name": "area:risk",
+      "color": "d93f0b",
+      "description": "Deterministic risk policy and enforcement"
+    },
+    {
+      "name": "area:execution",
+      "color": "c2e0c6",
+      "description": "Execution engine and reconciliation"
+    },
+    {
+      "name": "area:security",
+      "color": "bfdadc",
+      "description": "Security, IAM, and secrets management"
+    },
+    {
+      "name": "area:qa",
+      "color": "f9d0c4",
+      "description": "Replay, test, and release validation"
+    },
+    {
+      "name": "priority:p0",
+      "color": "b60205",
+      "description": "Must happen before dependent work"
+    },
+    {
+      "name": "priority:p1",
+      "color": "d93f0b",
+      "description": "Important but can follow core blockers"
+    },
+    {
+      "name": "blocked:external",
+      "color": "ededed",
+      "description": "Waiting on an external dependency"
+    }
+  ],
+  "milestones": [
+    {
+      "title": "M0 Foundations",
+      "description": "AWS foundation, environment separation, and release boundaries."
+    },
+    {
+      "title": "M1 Market State",
+      "description": "Canonical market, book, order, and account state."
+    },
+    {
+      "title": "M2 Trade Core",
+      "description": "Allocator, risk kernel, execution, and reconciliation."
+    },
+    {
+      "title": "M3 Control Plane",
+      "description": "OpenClaw orchestration, Slack controls, and cross-market proposals."
+    },
+    {
+      "title": "M4 Paper Readiness",
+      "description": "Ledger, replay, paper-trading validation, and production gate."
+    }
+  ],
+  "issues": [
+    {
+      "title": "[Epic] M0 Foundations and environment separation",
+      "milestone": "M0 Foundations",
+      "labels": ["epic", "area:infra", "area:security", "priority:p0"],
+      "body": "## Outcome\nEstablish the AWS, environment, and release boundaries required to build the v1 system without mixing nonprod and prod concerns.\n\n## Scope\n- Stand up the base AWS shape for `poly-nonprod` and `poly-prod`\n- Freeze service naming, account separation, and release boundaries\n- Define the secure path for secrets, config, and privileged deploy actions\n\n## Acceptance Criteria\n- `sim`, `paper`, and `prod` environment boundaries match the v1 environment matrix\n- Infrastructure decisions support `openclaw-control`, `market-state`, and `trade-core`\n- Production deploys require an explicit release action\n- Nonprod cannot access prod secrets or credentials\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/environment-matrix-v1.md`"
+    },
+    {
+      "title": "Provision AWS foundation for nonprod and prod",
+      "milestone": "M0 Foundations",
+      "labels": ["type:task", "area:infra", "area:security", "priority:p0"],
+      "body": "## Outcome\nProvision the AWS baseline for implementation and deployment.\n\n## Scope\n- Create or configure the nonprod and prod AWS accounts\n- Create ECS clusters, ECR repositories, CloudWatch log groups, and Secrets Manager namespaces\n- Define IAM roles for service tasks and deployment workflows\n\n## Acceptance Criteria\n- Both accounts exist and are reachable by the deployment workflow\n- Service roles follow least privilege\n- Shared naming and tagging conventions are documented\n- Base resources are ready for `openclaw-control`, `market-state`, and `trade-core`\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/environment-matrix-v1.md`"
+    },
+    {
+      "title": "Implement environment config, secrets boundaries, and release gates",
+      "milestone": "M0 Foundations",
+      "labels": ["type:task", "area:infra", "area:security", "priority:p0"],
+      "body": "## Outcome\nMake environment separation enforceable in code and deployment configuration.\n\n## Scope\n- Define environment-specific config loading\n- Ensure `TRADING_ENABLED=false` by default\n- Require explicit privileged action for any `prod` enablement\n- Separate OpenAI, Slack, and Polymarket secrets by environment\n\n## Acceptance Criteria\n- Services fail closed if the environment is ambiguous\n- Default runtime mode is `paper`\n- Production secrets are inaccessible from nonprod tasks\n- Release gating rules match the environment matrix\n\n## References\n- `docs/specs/environment-matrix-v1.md`\n- `docs/specs/risk-policy-v1.md`"
+    },
+    {
+      "title": "[Epic] M1 Market-state service",
+      "milestone": "M1 Market State",
+      "labels": ["epic", "area:market-state", "area:data", "priority:p0"],
+      "body": "## Outcome\nBuild the canonical market/account state service that all downstream components depend on.\n\n## Scope\n- Ingest tradable market discovery data\n- Normalize live books, open orders, fills, balances, and positions\n- Publish canonical state snapshots and health signals\n\n## Acceptance Criteria\n- `market-state` is the single source of truth for downstream services\n- State can be marked stale and block new execution\n- Canonical snapshots conform to the v1 service contracts\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/service-contracts-v1.md`"
+    },
+    {
+      "title": "Implement Polymarket market discovery and tradable universe ingestion",
+      "milestone": "M1 Market State",
+      "labels": ["type:task", "area:market-state", "priority:p0"],
+      "body": "## Outcome\nContinuously ingest the tradable Polymarket universe and prepare it for downstream filtering.\n\n## Scope\n- Pull market discovery data from Polymarket endpoints\n- Normalize market identifiers, contract identifiers, and resolution metadata\n- Tag markets into internal `market_complex_id` groups when known\n\n## Acceptance Criteria\n- Tradable market records are stored in a normalized format\n- Closed or ineligible markets are filtered correctly\n- Each tracked contract can be linked back to a market and market complex\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/service-contracts-v1.md`"
+    },
+    {
+      "title": "Implement real-time book, order, and account state normalization",
+      "milestone": "M1 Market State",
+      "labels": ["type:task", "area:market-state", "area:data", "priority:p0"],
+      "body": "## Outcome\nMaintain a normalized real-time view of books, orders, balances, and positions.\n\n## Scope\n- Consume streaming or polled market/book data\n- Model open orders, fills, balances, and positions in a single state layer\n- Apply staleness timers and state health markers\n\n## Acceptance Criteria\n- Top-of-book and spread data are available for tracked contracts\n- Position and order state reconcile into a coherent account view\n- Stale state is detectable using the thresholds in the risk policy\n\n## References\n- `docs/specs/risk-policy-v1.md`\n- `docs/specs/service-contracts-v1.md`"
+    },
+    {
+      "title": "Persist canonical snapshots and publish state events",
+      "milestone": "M1 Market State",
+      "labels": ["type:task", "area:market-state", "area:data", "priority:p1"],
+      "body": "## Outcome\nPersist the canonical state and expose it to the rest of the system through the approved contracts.\n\n## Scope\n- Emit `market_snapshot` and `position_snapshot` events\n- Store snapshots and health metadata in DynamoDB/S3 as appropriate\n- Make the state available for replay and daily summaries\n\n## Acceptance Criteria\n- Snapshot payloads follow the v1 service contracts\n- Event emission is traceable and versioned\n- Stored state is usable by replay and scorecard workflows\n\n## References\n- `docs/specs/service-contracts-v1.md`\n- `docs/specs/system-spec-v1.md`"
+    },
+    {
+      "title": "[Epic] M2 Trade-core service",
+      "milestone": "M2 Trade Core",
+      "labels": ["epic", "area:trade-core", "area:risk", "area:execution", "priority:p0"],
+      "body": "## Outcome\nBuild the deterministic core that turns approved opportunities into safe order behavior.\n\n## Scope\n- Normalize proposals\n- Rank and allocate capital\n- Enforce risk policy\n- Execute and reconcile orders\n\n## Acceptance Criteria\n- `trade-core` owns allocator, risk, execution, and reconciliation responsibilities\n- Risk checks cannot be bypassed by LLM output\n- Execution follows intents rather than direct LLM order instructions\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/risk-policy-v1.md`\n- `docs/specs/service-contracts-v1.md`"
+    },
+    {
+      "title": "Implement proposal normalization and portfolio allocator",
+      "milestone": "M2 Trade Core",
+      "labels": ["type:task", "area:trade-core", "priority:p0"],
+      "body": "## Outcome\nRank standardized opportunities across sleeves and produce allocator decisions.\n\n## Scope\n- Validate incoming `strategy_proposal` payloads\n- Rank opportunities by edge, confidence, and portfolio fit\n- Produce `allocator_decision` records with traceable sizing\n\n## Acceptance Criteria\n- Proposals are rejected if required fields are missing\n- Allocator decisions conform to the service contracts\n- Multiple sleeves can compete for shared bankroll under one allocator\n\n## References\n- `docs/specs/service-contracts-v1.md`\n- `docs/specs/system-spec-v1.md`"
+    },
+    {
+      "title": "Implement deterministic risk kernel and halt logic",
+      "milestone": "M2 Trade Core",
+      "labels": ["type:task", "area:trade-core", "area:risk", "priority:p0"],
+      "body": "## Outcome\nEnforce the hard risk rules from the v1 risk policy.\n\n## Scope\n- Encode exposure, drawdown, liquidity, and staleness checks\n- Support `approved`, `resized`, `rejected`, and `halted` outcomes\n- Trigger stop conditions on stale state, reconciliation failure, or operator pause/flatten\n\n## Acceptance Criteria\n- Risk results conform to the `risk_decision` contract\n- LLM output cannot override hard limits\n- Halt conditions stop new execution immediately\n\n## References\n- `docs/specs/risk-policy-v1.md`\n- `docs/specs/service-contracts-v1.md`"
+    },
+    {
+      "title": "Implement execution engine, heartbeat handling, and reconciliation",
+      "milestone": "M2 Trade Core",
+      "labels": ["type:task", "area:trade-core", "area:execution", "priority:p0"],
+      "body": "## Outcome\nTurn approved intents into safe exchange behavior and keep order/account state reconciled.\n\n## Scope\n- Translate `execution_intent` into concrete order plans\n- Manage order lifecycle, retries, cancel rules, and heartbeats\n- Reconcile exchange events back into canonical state\n\n## Acceptance Criteria\n- Execution accepts only approved intents\n- Heartbeat and cancel behavior are deterministic\n- Reconciliation mismatches trigger the correct halt flow\n- Order lifecycle events follow the approved contract\n\n## References\n- `docs/specs/risk-policy-v1.md`\n- `docs/specs/service-contracts-v1.md`"
+    },
+    {
+      "title": "[Epic] M3 OpenClaw control plane",
+      "milestone": "M3 Control Plane",
+      "labels": ["epic", "area:control-plane", "priority:p1"],
+      "body": "## Outcome\nBuild the operator-facing control plane and the first strategy proposal path on top of the deterministic system.\n\n## Scope\n- Slack operator commands\n- OpenClaw orchestration boundaries\n- Cross-market consistency proposal generation\n\n## Acceptance Criteria\n- OpenClaw acts as allocator/coordinator, not direct execution engine\n- Operator commands are available in Slack\n- Strategy proposals enter `trade-core` via the approved contract\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/service-contracts-v1.md`"
+    },
+    {
+      "title": "Implement Slack operator commands and control workflows",
+      "milestone": "M3 Control Plane",
+      "labels": ["type:task", "area:control-plane", "priority:p1"],
+      "body": "## Outcome\nExpose the required operator surface in Slack.\n\n## Scope\n- Implement `status`, `why`, `risk`, `pause`, `resume`, `flatten`, `mode`, and `sleeves`\n- Route commands through OpenClaw without giving it direct order authority\n- Make operator actions visible in the ledger\n\n## Acceptance Criteria\n- All required commands work in nonprod\n- Pause and flatten produce immediate downstream effects\n- Operator actions are logged and traceable\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/risk-policy-v1.md`"
+    },
+    {
+      "title": "Implement cross-market consistency proposal generator",
+      "milestone": "M3 Control Plane",
+      "labels": ["type:task", "area:control-plane", "area:trade-core", "priority:p1"],
+      "body": "## Outcome\nGenerate the first live-trading strategy proposals under the v1 scope.\n\n## Scope\n- Define internal logic for linked market complexes\n- Estimate edge after costs, confidence, holding horizon, and invalidators\n- Emit `strategy_proposal` payloads for allocator review\n\n## Acceptance Criteria\n- Only cross-market consistency proposals are produced for live trading use\n- Proposals contain all required fields from the v1 contract\n- Proposal TTL and invalidation logic match the risk policy\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/service-contracts-v1.md`\n- `docs/specs/risk-policy-v1.md`"
+    },
+    {
+      "title": "[Epic] M4 Replay, ledger, and paper-trading readiness",
+      "milestone": "M4 Paper Readiness",
+      "labels": ["epic", "area:data", "area:qa", "priority:p1"],
+      "body": "## Outcome\nMake the system testable, reviewable, and safe to promote from simulation into paper trading.\n\n## Scope\n- Decision ledger\n- Scorecards and summaries\n- Replay harness and promotion tests\n- Production release runbook\n\n## Acceptance Criteria\n- The team can replay and inspect core decisions deterministically\n- Promotion gates from the v1 specs are testable\n- Paper mode can be assessed on operational and decision quality grounds\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/risk-policy-v1.md`"
+    },
+    {
+      "title": "Implement decision ledger, scorecards, and daily summaries",
+      "milestone": "M4 Paper Readiness",
+      "labels": ["type:task", "area:data", "priority:p1"],
+      "body": "## Outcome\nCreate the audit and learning layer for the system.\n\n## Scope\n- Record proposals, decisions, order events, and operator actions\n- Produce daily summaries for P&L, exposure, rejects, and health events\n- Maintain scorecards by sleeve and market complex\n\n## Acceptance Criteria\n- The ledger is immutable by default\n- Daily summaries are generated from recorded events\n- Scorecards support later promotion and bankroll decisions\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/service-contracts-v1.md`"
+    },
+    {
+      "title": "Build replay harness and promotion test suite",
+      "milestone": "M4 Paper Readiness",
+      "labels": ["type:task", "area:qa", "area:data", "priority:p1"],
+      "body": "## Outcome\nCreate the test harness needed to promote safely between modes.\n\n## Scope\n- Replay archived market state and recorded decisions\n- Validate allocator, risk, and execution behavior deterministically\n- Encode promotion checks for `sim` to `paper` and `paper` to `prod`\n\n## Acceptance Criteria\n- Replays produce reproducible outputs with identical inputs\n- Promotion checks cover the gates in the v1 system spec\n- The suite can be run before enabling the next operating mode\n\n## References\n- `docs/specs/system-spec-v1.md`\n- `docs/specs/risk-policy-v1.md`"
+    },
+    {
+      "title": "Prepare production release runbook and beta enablement gate",
+      "milestone": "M4 Paper Readiness",
+      "labels": ["type:task", "area:qa", "area:security", "priority:p1", "blocked:external"],
+      "body": "## Outcome\nDocument the exact path from paper mode to a live release once Polymarket provides the greenlight.\n\n## Scope\n- Define the operator checklist for enabling `prod`\n- Record the beta-release dependency on Polymarket approval\n- Document rollback, pause, flatten, and incident procedures\n\n## Acceptance Criteria\n- The runbook matches the environment and risk specs\n- `prod` enablement steps are explicit and privileged\n- External platform approval is called out as a blocking dependency\n\n## References\n- `docs/specs/environment-matrix-v1.md`\n- `docs/specs/risk-policy-v1.md`"
+    }
+  ]
+}

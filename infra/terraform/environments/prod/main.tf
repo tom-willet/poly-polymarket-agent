@@ -1,0 +1,55 @@
+terraform {
+  required_version = ">= 1.9.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+
+  backend "s3" {}
+}
+
+provider "aws" {
+  region  = var.aws_region
+  profile = var.aws_profile
+}
+
+locals {
+  project_name = "poly-orchestrator"
+
+  service_names = [
+    "openclaw-control",
+    "market-state",
+    "trade-core"
+  ]
+}
+
+module "platform_foundation" {
+  source = "../../modules/platform_foundation"
+
+  project_name     = local.project_name
+  environment_name = "prod"
+  aws_region       = var.aws_region
+  service_names    = toset(local.service_names)
+
+  service_secret_names = {
+    "openclaw-control" = [
+      "/poly/prod/openai-api-key",
+      "/poly/prod/slack-app-token",
+      "/poly/prod/slack-bot-token"
+    ]
+    "market-state" = []
+    "trade-core" = [
+      "/poly/prod/polymarket-wallet-private-key",
+      "/poly/prod/polymarket-api-credentials",
+      "/poly/prod/polymarket-builder-key"
+    ]
+  }
+
+  tags = {
+    Repository = "poly-polymarket-agent"
+    Stack      = "poly-prod"
+  }
+}
