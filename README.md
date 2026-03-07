@@ -14,18 +14,23 @@ Current implementation status:
 - `M0 Foundations`: complete in repo and provisioned in AWS.
 - `M1 Market State`: market universe ingestion complete.
 - `M1 Market State`: public market WebSocket normalization complete.
-- `M1 Market State`: account-state polling, health checks, and persistence plumbing complete.
+- `M1 Market State`: account-state polling, health checks, position snapshots, and persistence plumbing complete.
 - `M1 Market State`: nonprod DynamoDB/S3 persistence verified for the public market-data path.
-- `M1 Market State`: authenticated account-state persistence still needs live credential verification.
-- `M2 Trade Core`: allocator, risk kernel, execution intent planning, heartbeat handling, and reconciliation started.
-- `M3 Control Plane`: operator command core started.
-- `M3 Control Plane`: cross-market consistency proposal generator started.
-- `M3 Control Plane`: first integrated decision cycle started.
+- `M1 Market State`: authenticated account-state persistence still needs live credential verification with nonprod Polymarket creds.
+- `M2 Trade Core`: allocator complete.
+- `M2 Trade Core`: deterministic risk kernel complete.
+- `M2 Trade Core`: execution intent planning, lifecycle policy, heartbeat handling, and reconciliation modules implemented.
+- `M2 Trade Core`: live exchange write path and real execution worker remain open.
+- `M3 Control Plane`: operator command core implemented.
+- `M3 Control Plane`: cross-market consistency proposal generator implemented.
+- `M3 Control Plane`: integrated decision cycle implemented.
+- `M4 Paper Readiness`: decision-ledger persistence started.
 
 Checkpoint notes:
 - Terraform foundation exists for separate `nonprod` and `prod` environments.
 - GitHub milestones/issues are live and being used as the implementation backlog.
 - `market-state` currently emits `market_universe_snapshot`, `market_snapshot`, `market_data_health`, `account_state_snapshot`, and `account_state_health` envelopes.
+- `market-state` now also emits `position_snapshot` envelopes derived from authenticated account positions.
 - Latest-state persistence uses DynamoDB for compact records and S3 for NDJSON archives.
 - `market_universe_snapshot` is archived to S3 only because the full payload exceeds DynamoDB item-size limits.
 - `trade-core` can now produce `allocator_decision`, `risk_decision`, `execution_intent`, and `execution_action` envelopes.
@@ -34,12 +39,14 @@ Checkpoint notes:
 - `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for binary complement inconsistencies.
 - `openclaw-control` can now run an in-process decision cycle from proposal generation through allocator, risk, and execution intent planning.
 - `openclaw-control` now derives cycle exposure, performance, and heartbeat inputs from persisted state when available.
+- `openclaw-control` now persists `health#execution-heartbeat` into current-state on every cycle.
 - Live trading remains disabled pending Polymarket US beta enablement and explicit production approval.
 
 Specs:
 - [docs/specs/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/docs/specs/README.md)
 - [docs/executive-business-proposal.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/docs/executive-business-proposal.md)
 - [docs/backlog/github-issues-v1.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/docs/backlog/github-issues-v1.md)
+- [docs/progress-summary-v1.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/docs/progress-summary-v1.md)
 
 Infrastructure:
 - [infra/terraform/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/infra/terraform/README.md)
