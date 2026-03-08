@@ -28,5 +28,7 @@ Implementation checkpoint:
 - Public market-data persistence has been verified in nonprod AWS.
 - Authenticated account-state persistence still needs live verification with nonprod Polymarket credentials.
 - `trade-core` implements allocator, risk, execution planning, lifecycle action policy, and current-state hydration.
+- `execution-worker` implements heartbeat ownership and deterministic execution-action evaluation from persisted intents.
 - `openclaw-control` implements operator commands, proposal generation, decision-cycle orchestration, and ledger persistence.
+- `openclaw-runtime` implements a Slack Socket Mode adapter over the control-plane command core.
 - Live trading remains disabled until Polymarket gives the greenlight and internal promotion gates are satisfied.

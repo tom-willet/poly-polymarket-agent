@@ -208,19 +208,22 @@ async function loadExecutionHeartbeatHealthy(
   };
 }
 
-async function persistExecutionHeartbeat(
+async function persistCurrentStateEnvelope<T>(
   currentState: CurrentStateStore,
   env: DecisionCycleContext["env"],
-  heartbeat: ExecutionHeartbeatPayload
+  eventType: string,
+  entityId: string,
+  payload: T,
+  tsUtc = new Date().toISOString()
 ): Promise<void> {
-  await currentState.put("health#execution-heartbeat", "latest", {
+  await currentState.put(`${eventType}#${entityId}`, "latest", {
     schema_version: "v1",
     env,
-    event_type: "execution_heartbeat",
+    event_type: eventType,
     service: "openclaw-control",
     trace_id: crypto.randomUUID(),
-    ts_utc: new Date().toISOString(),
-    payload: heartbeat
+    ts_utc: tsUtc,
+    payload
   });
 }
 
@@ -237,7 +240,6 @@ export async function runDecisionCycle(
         ? heartbeatState.heartbeat.timeout_ms
         : executionConfig.heartbeatTimeoutMs
   };
-  await persistExecutionHeartbeat(context.currentState, context.env, resolvedHeartbeat);
   const proposalEnvelopes = await generateCrossMarketConsistencyProposals({
     env: context.env,
     config: context.config,
@@ -380,6 +382,14 @@ export async function runDecisionCycle(
   }
 
   for (const intent of executionIntents) {
+    await persistCurrentStateEnvelope(
+      context.currentState,
+      context.env,
+      "execution_intent",
+      intent.payload.order_plan_id,
+      intent.payload,
+      intent.ts_utc
+    );
     await persistLedgerEnvelope(
       context.decisionLedger,
       context.env,

@@ -70,6 +70,7 @@ Primary files:
 - Heartbeat-health logic implemented.
 - Reconciliation primitives implemented.
 - Hydration from current-state implemented for risk and execution planning.
+- Dedicated `execution-worker` service implemented on top of the deterministic execution modules.
 
 Current emitted envelopes:
 
@@ -86,6 +87,8 @@ Primary files:
 - [services/trade-core/src/risk.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/trade-core/src/risk.ts)
 - [services/trade-core/src/executionPolicy.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/trade-core/src/executionPolicy.ts)
 - [services/trade-core/src/stateReader.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/trade-core/src/stateReader.ts)
+- [services/execution-worker/src/worker.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/execution-worker/src/worker.ts)
+- [services/execution-worker/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/execution-worker/README.md)
 
 ### M3 Control Plane
 
@@ -95,7 +98,8 @@ Primary files:
 - `cross-market consistency` proposal generator implemented.
 - Integrated decision cycle implemented from proposal generation through allocator, risk, and execution-intent planning.
 - Decision-cycle outputs persisted into the decision ledger.
-- Execution-heartbeat state now persisted into current-state on every cycle.
+- Slack runtime adapter implemented as `openclaw-runtime`.
+- `execution_intent` rows now persisted into current-state for downstream execution.
 
 Supported operator commands:
 
@@ -115,6 +119,8 @@ Primary files:
 - [services/openclaw-control/src/proposals.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/openclaw-control/src/proposals.ts)
 - [services/openclaw-control/src/decisionCycle.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/openclaw-control/src/decisionCycle.ts)
 - [services/openclaw-control/src/store.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/openclaw-control/src/store.ts)
+- [services/openclaw-runtime/src/runtime.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/openclaw-runtime/src/runtime.ts)
+- [services/openclaw-runtime/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/openclaw-runtime/README.md)
 
 ### M4 Paper Readiness
 
@@ -137,7 +143,9 @@ Primary files:
 - `openclaw-control status` verified against canonical nonprod state
 - Operator pause persistence verified
 - Integrated decision-cycle ledger writes verified
-- `health#execution-heartbeat` write path verified in DynamoDB
+- `execution-worker tick` verified against real nonprod tables
+- `health#execution-heartbeat` write path verified in DynamoDB with `service=execution-worker`
+- verified that a subsequent `openclaw-control cycle` reads the worker heartbeat row instead of writing its own
 
 ## What Was Cleaned Up
 
@@ -154,8 +162,8 @@ More specifically:
 
 - Public market-state ingestion is real and verified.
 - Account-state polling and `position_snapshot` production are implemented, but still need live nonprod credential verification.
-- `trade-core` logic is implemented, but there is no live exchange write path or dedicated execution worker yet.
-- `openclaw-control` command and decision logic are implemented, but this is still the command core rather than the full OpenClaw runtime wiring.
+- `trade-core` logic is implemented and a dedicated execution worker now exists, but there is still no live exchange write path.
+- `openclaw-control` command and decision logic are implemented, and a Slack runtime adapter exists, but the real nonprod Slack app has not been exercised end to end yet.
 - The system can reason over current-state, produce proposals, allocate capital, run risk checks, plan execution, and persist the decision chain.
 - The system cannot yet place or manage real Polymarket orders end to end.
 
@@ -191,9 +199,9 @@ Open:
 
 1. Verify authenticated `market-state` account persistence in nonprod with real Polymarket credentials.
 2. Verify live `position_snapshot` writes in nonprod DynamoDB.
-3. Implement a real execution worker with exchange write authority.
-4. Move heartbeat truth from `openclaw-control` into that execution worker.
-5. Wire the full OpenClaw/Slack runtime to the control-plane command core.
+3. Add exchange write authority to the execution worker.
+4. Add real Polymarket heartbeat ack handling to the execution worker.
+5. Exercise the Slack runtime end to end in the real nonprod Slack app.
 
 ### Paper-Readiness Work
 
@@ -217,8 +225,8 @@ Open:
 ## Recommended Next Sequence
 
 1. Finish nonprod authenticated verification for `market-state`.
-2. Build the dedicated execution worker and make it the heartbeat source of truth.
-3. Complete OpenClaw/Slack runtime wiring.
+2. Verify the new Slack runtime end to end in nonprod.
+3. Add real exchange writes and heartbeat ack handling to the execution worker.
 4. Start `M4` replay and scorecard work.
 
 ## Related Documents

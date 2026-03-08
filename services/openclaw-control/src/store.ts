@@ -49,6 +49,20 @@ export interface AccountSnapshotPayload {
   position_count: number;
   recent_trade_count: number;
   total_position_value_usd: number;
+  open_orders?: Array<{
+    order_id: string;
+    market_id: string;
+    contract_id: string;
+    side: string;
+    status: string;
+    price: number | null;
+    original_size: number | null;
+    matched_size: number | null;
+    remaining_size: number | null;
+    outcome?: string | null;
+    created_at_utc?: string | null;
+    expiration_utc?: string | null;
+  }>;
 }
 
 export interface PositionSnapshotPayload {

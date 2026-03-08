@@ -20,10 +20,12 @@ Current implementation status:
 - `M2 Trade Core`: allocator complete.
 - `M2 Trade Core`: deterministic risk kernel complete.
 - `M2 Trade Core`: execution intent planning, lifecycle policy, heartbeat handling, and reconciliation modules implemented.
-- `M2 Trade Core`: live exchange write path and real execution worker remain open.
+- `M2 Trade Core`: dedicated execution worker implemented.
+- `M2 Trade Core`: live exchange write path remains open.
 - `M3 Control Plane`: operator command core implemented.
 - `M3 Control Plane`: cross-market consistency proposal generator implemented.
 - `M3 Control Plane`: integrated decision cycle implemented.
+- `M3 Control Plane`: Slack runtime adapter implemented.
 - `M4 Paper Readiness`: decision-ledger persistence started.
 
 Checkpoint notes:
@@ -39,7 +41,9 @@ Checkpoint notes:
 - `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for binary complement inconsistencies.
 - `openclaw-control` can now run an in-process decision cycle from proposal generation through allocator, risk, and execution intent planning.
 - `openclaw-control` now derives cycle exposure, performance, and heartbeat inputs from persisted state when available.
-- `openclaw-control` now persists `health#execution-heartbeat` into current-state on every cycle.
+- `openclaw-control` now persists `execution_intent` rows into current-state for the execution worker.
+- `execution-worker` now owns `health#execution-heartbeat` and evaluates deterministic `execution_action` updates from persisted intents.
+- `openclaw-runtime` now provides a Slack Socket Mode adapter over the `openclaw-control` command core.
 - Live trading remains disabled pending Polymarket US beta enablement and explicit production approval.
 
 Specs:
@@ -55,6 +59,8 @@ Services:
 - [services/market-state/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/market-state/README.md)
 - [services/trade-core/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/trade-core/README.md)
 - [services/openclaw-control/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/openclaw-control/README.md)
+- [services/execution-worker/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/execution-worker/README.md)
+- [services/openclaw-runtime/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/openclaw-runtime/README.md)
 
 Legacy deployment reference:
 - [deploy/lightsail/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/deploy/lightsail/README.md)

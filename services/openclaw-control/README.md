@@ -47,5 +47,5 @@ pnpm --filter @poly/openclaw-control cycle
 - `cycle` now derives exposure from `position_snapshot` rows when available, otherwise falls back to account state.
 - `cycle` now derives performance from `position_snapshot` rows when available, otherwise falls back to zero.
 - `cycle` now derives execution heartbeat from current-state health when available, with a non-prod fallback policy.
-- `cycle` now persists `health#execution-heartbeat` on each run so subsequent cycles read an explicit heartbeat row.
+- `cycle` now persists `execution_intent` rows into current-state for the execution worker to consume.
 - Trade execution authority remains outside the control plane.

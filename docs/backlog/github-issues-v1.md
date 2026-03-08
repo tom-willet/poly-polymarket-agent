@@ -72,16 +72,18 @@ Checkpoint notes:
 
 - nonprod IAM for `market-state` current-state and archive writes has been applied
 - public market-data persistence path has been verified end to end against nonprod DynamoDB and S3
-- `openclaw-control cycle` now persists `health#execution-heartbeat` into current-state and this path has been verified in nonprod DynamoDB
+- `execution-worker` now persists `health#execution-heartbeat` into current-state and this path has been verified in nonprod DynamoDB
 - authenticated account-state persistence and `position_snapshot` publication remain unverified until nonprod Polymarket credentials are available
 - `trade-core` now has a deterministic allocator with proposal validation, ranking, and bankroll-aware sizing
 - `trade-core` now has a deterministic risk kernel with halt, reject, approve, and resize outcomes
 - `trade-core` now has deterministic execution intent planning, lifecycle action evaluation, heartbeat health tracking, and user-channel reconciliation modules
+- `execution-worker` now owns `health#execution-heartbeat`, consumes `execution_intent` rows, and persists `execution_action` updates
 - `trade-core` now has a read-side bridge from DynamoDB current-state records into risk and execution planning inputs
 - `openclaw-control` now has an operator command core with persisted mode / pause / flatten state and ledger logging
 - `openclaw-control` now has a deterministic proposal generator for binary complement consistency checks
-- `openclaw-control` now has an integrated decision-cycle command that runs proposal generation through allocator, risk, and execution intent planning
+- `openclaw-control` now has an integrated decision-cycle command that runs proposal generation through allocator, risk, and execution intent planning, then persists `execution_intent` rows for downstream execution
 - `openclaw-control` now derives cycle exposure and performance from persisted sources when available, with controlled fallbacks where live position data is not yet present
+- `openclaw-runtime` now provides a Slack Socket Mode adapter over the command core, but still needs live nonprod Slack validation
 
 ## Live GitHub Status
 
@@ -92,6 +94,6 @@ Reason the remaining issues stay open:
 
 - `#6`: authenticated order/account normalization still needs live verification and user-channel coverage
 - `#7`: authenticated persistence path still needs live nonprod verification
-- `#11`: deterministic execution modules exist, but the live execution worker and exchange write path do not
-- `#13`: command core exists, but full OpenClaw/Slack runtime wiring is not finished
+- `#11`: dedicated execution worker now exists, but the live exchange write path and Polymarket heartbeat ack loop do not
+- `#13`: Slack runtime adapter now exists, but it has not yet been exercised end to end in the real nonprod Slack app
 - `#15`-`#18`: replay, scorecards, daily summaries, promotion testing, and runbook work are still ahead

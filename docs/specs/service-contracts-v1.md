@@ -480,11 +480,11 @@ Payload:
 
 Producer:
 
-- `openclaw-control`
+- `execution-worker`
 
 Purpose:
 
-- Persist the latest execution-heartbeat health consumed by the decision cycle.
+- Persist the latest execution-worker heartbeat health consumed by the decision cycle.
 
 Payload:
 

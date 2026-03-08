@@ -201,17 +201,15 @@ test("decision cycle produces proposal, allocator decision, risk decision, and e
   assert.equal(decisionLedger.items.some((item) => item.event_type === "risk_decision"), true);
   assert.equal(decisionLedger.items.some((item) => item.event_type === "execution_intent"), true);
   assert.equal(decisionLedger.items.some((item) => item.event_type === "decision_cycle"), true);
-  const heartbeat = await store.get<{
-    active: boolean;
-    healthy: boolean;
-    timeout_ms: number;
-  }>("health#execution-heartbeat", "latest");
-  assert.equal(heartbeat?.event_type, "execution_heartbeat");
-  assert.equal(heartbeat?.payload.healthy, true);
-  assert.equal(heartbeat?.payload.timeout_ms, 15000);
+  const persistedIntents = await store.queryByPkPrefix("execution_intent#");
+  assert.equal(persistedIntents.length, 1);
+  assert.equal(
+    (persistedIntents[0]?.payload as { order_plan_id: string }).order_plan_id,
+    (cycle.payload.execution_intents[0] as { order_plan_id: string }).order_plan_id
+  );
 });
 
-test("decision cycle persists heartbeat state even when no proposals are available", async () => {
+test("decision cycle does not require a heartbeat row when no proposals are available", async () => {
   process.env.RUNTIME_MODE = "paper";
   process.env.EXECUTION_HEARTBEAT_TIMEOUT_MS = "15000";
 
@@ -255,7 +253,5 @@ test("decision cycle persists heartbeat state even when no proposals are availab
     healthy: boolean;
     timeout_ms: number;
   }>("health#execution-heartbeat", "latest");
-  assert.equal(heartbeat?.event_type, "execution_heartbeat");
-  assert.equal(heartbeat?.payload.healthy, true);
-  assert.equal(heartbeat?.payload.timeout_ms, 15000);
+  assert.equal(heartbeat, null);
 });

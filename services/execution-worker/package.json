@@ -1,5 +1,5 @@
 {
-  "name": "@poly/openclaw-control",
+  "name": "@poly/execution-worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,17 +12,15 @@
     }
   },
   "scripts": {
-    "prebuild": "pnpm --filter @poly/trade-core build",
+    "prebuild": "pnpm --filter @poly/trade-core build && pnpm --filter @poly/openclaw-control build",
     "build": "tsc -p tsconfig.json",
-    "handle": "tsx src/cli.ts handle",
-    "propose": "tsx src/cli.ts propose",
-    "cycle": "tsx src/cli.ts cycle",
-    "pretest": "pnpm --filter @poly/trade-core build",
+    "tick": "tsx src/cli.ts tick",
+    "loop": "tsx src/cli.ts loop",
+    "pretest": "pnpm --filter @poly/trade-core build && pnpm --filter @poly/openclaw-control build",
     "test": "node --import tsx --test ./test/*.test.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1004.0",
-    "@aws-sdk/lib-dynamodb": "^3.1004.0",
+    "@poly/openclaw-control": "workspace:*",
     "@poly/trade-core": "workspace:*"
   },
   "devDependencies": {
