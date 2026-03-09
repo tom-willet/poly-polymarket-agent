@@ -71,6 +71,7 @@ Primary files:
 - Reconciliation primitives implemented.
 - Hydration from current-state implemented for risk and execution planning.
 - Dedicated `execution-worker` service implemented on top of the deterministic execution modules.
+- Deterministic paper broker implemented inside `execution-worker` for passive orders, cancel escalation, cross fills, cash, and portfolio state.
 
 Current emitted envelopes:
 
@@ -153,6 +154,7 @@ Primary files:
 - nonprod `openclaw-runtime` ECS service deployed and stabilized
 - real Slack DM validation completed against the nonprod app after removing legacy Lightsail responders
 - authenticated `account_state_snapshot` and `account_state_health` writes verified in nonprod DynamoDB for wallet `0x7c5b485B9372A22bAc9A5B298e9B513A30E44A9a`
+- execution-worker paper lifecycle verified locally through passive order placement, cancel escalation, cross fills, paper cash updates, and aggregated `position_snapshot` creation
 
 ## What Was Cleaned Up
 
@@ -171,6 +173,7 @@ More specifically:
 - Account-state polling is implemented and authenticated nonprod persistence is verified.
 - `position_snapshot` production is implemented, but the verified account currently has zero positions so live position-bearing coverage is still pending.
 - `trade-core` logic is implemented and a dedicated execution worker now exists, but there is still no live exchange write path.
+- `execution-worker` now supports deterministic paper execution with virtual cash and paper positions.
 - `openclaw-control` command and decision logic are implemented, and the Slack runtime is now deployed and validated in nonprod ECS.
 - The system can reason over current-state, produce proposals, allocate capital, run risk checks, plan execution, and persist the decision chain.
 - The system cannot yet place or manage real Polymarket orders end to end.
@@ -205,9 +208,10 @@ Open:
 
 ### Immediate Remaining Work
 
-1. Verify live `position_snapshot` writes in nonprod DynamoDB with an account that actually holds positions.
-2. Add exchange write authority to the execution worker.
-3. Add real Polymarket heartbeat ack handling to the execution worker.
+1. Run the new paper broker continuously in nonprod and verify paper portfolio rows in DynamoDB.
+2. Verify live `position_snapshot` writes in nonprod DynamoDB with an account that actually holds positions.
+3. Add exchange write authority to the execution worker.
+4. Add real Polymarket heartbeat ack handling to the execution worker.
 
 ### Paper-Readiness Work
 
@@ -229,9 +233,9 @@ Open:
 
 ## Recommended Next Sequence
 
-1. Verify `position_snapshot` persistence with a non-empty account.
-2. Add real exchange writes and heartbeat ack handling to the execution worker.
-3. Expand `M4` replay and scorecard work once execution-side gaps are closed.
+1. Run the paper broker in nonprod and verify paper portfolio state end to end.
+2. Verify `position_snapshot` persistence with a non-empty account.
+3. Add real exchange writes and heartbeat ack handling to the execution worker.
 
 ## Related Documents
 

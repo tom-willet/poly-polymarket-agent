@@ -133,7 +133,9 @@ export async function loadCanonicalStateBundle(
       contract_id: snapshot.contract_id,
       best_bid: snapshot.best_bid,
       best_ask: snapshot.best_ask,
-      spread_cents: snapshot.spread_cents
+      spread_cents: snapshot.spread_cents,
+      top_bid_size: snapshot.top_bid_size,
+      top_ask_size: snapshot.top_ask_size
     })),
     systemHealth: {
       marketDataStale: marketHealth.payload.stale,

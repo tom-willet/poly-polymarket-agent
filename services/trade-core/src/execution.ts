@@ -13,6 +13,8 @@ export interface ExecutionMarketState {
   best_bid: number | null;
   best_ask: number | null;
   spread_cents: number | null;
+  top_bid_size: number | null;
+  top_ask_size: number | null;
 }
 
 export interface ExecutionPlanningInput {

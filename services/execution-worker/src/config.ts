@@ -4,6 +4,7 @@ export interface ExecutionWorkerConfig {
   decisionLedgerTableName: string;
   pollIntervalMs: number;
   maxIntentsPerTick: number;
+  paperStartingCashUsd: number;
 }
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
@@ -14,6 +15,19 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     throw new Error(`Expected positive integer but received "${value}"`);
+  }
+
+  return parsed;
+}
+
+function parsePositiveNumber(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`Expected positive number but received "${value}"`);
   }
 
   return parsed;
@@ -41,6 +55,7 @@ export function loadExecutionWorkerConfig(): ExecutionWorkerConfig {
     currentStateTableName,
     decisionLedgerTableName,
     pollIntervalMs: parsePositiveInt(process.env.EXECUTION_WORKER_POLL_INTERVAL_MS, 5_000),
-    maxIntentsPerTick: parsePositiveInt(process.env.EXECUTION_WORKER_MAX_INTENTS, 25)
+    maxIntentsPerTick: parsePositiveInt(process.env.EXECUTION_WORKER_MAX_INTENTS, 25),
+    paperStartingCashUsd: parsePositiveNumber(process.env.PAPER_STARTING_CASH_USD, 500)
   };
 }

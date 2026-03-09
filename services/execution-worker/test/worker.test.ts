@@ -54,7 +54,8 @@ function config(): ExecutionWorkerConfig {
     currentStateTableName: "unused",
     decisionLedgerTableName: "unused",
     pollIntervalMs: 5_000,
-    maxIntentsPerTick: 10
+    maxIntentsPerTick: 10,
+    paperStartingCashUsd: 500
   };
 }
 
@@ -67,6 +68,7 @@ test("execution worker persists heartbeat even with no intents", async () => {
 
   assert.equal(summary.scanned_intents, 0);
   assert.equal(summary.heartbeat.healthy, true);
+  assert.equal(summary.paper_order_updates, 0);
   const heartbeat = await currentState.get<{ healthy: boolean }>("health#execution-heartbeat", "latest");
   assert.equal(heartbeat?.event_type, "execution_heartbeat");
   assert.equal(heartbeat?.payload.healthy, true);
@@ -186,5 +188,159 @@ test("execution worker evaluates actions from persisted intents", async () => {
   assert.equal(action?.event_type, "execution_action");
   assert.equal(action?.payload.status, "ready");
   assert.equal(action?.payload.actions.length, 2);
+  assert.equal(summary.paper_order_updates, 2);
+  const paperCash = await currentState.get<{ reserved_cash_usd: number; available_cash_usd: number }>(
+    "paper_cash#paper:0xabc",
+    "latest"
+  );
+  assert.equal(paperCash?.event_type, "paper_cash_snapshot");
+  assert.equal(paperCash?.payload.reserved_cash_usd > 0, true);
   assert.equal(decisionLedger.items.some((item) => item.event_type === "execution_action"), true);
+});
+
+test("paper broker cancels resting passive orders and crosses on a later tick", async () => {
+  process.env.EXECUTION_HEARTBEAT_TIMEOUT_MS = "15000";
+  process.env.EXECUTION_INTENT_EXPIRY_SECONDS = "30";
+  process.env.EXECUTION_PASSIVE_RESTING_MS = "3000";
+
+  const currentState = new InMemoryCurrentStateStore(
+    new Map([
+      [
+        "account#0xabc|snapshot",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "account_state_snapshot",
+          payload: {
+            user_address: "0xabc",
+            funder_address: "0xabc",
+            collateral: { balance: 1000, allowance: 1000 },
+            open_order_count: 0,
+            position_count: 0,
+            recent_trade_count: 0,
+            total_position_value_usd: 0,
+            open_orders: []
+          }
+        }
+      ],
+      [
+        "market#ct-yes|snapshot",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "mkt-1",
+            contract_id: "ct-yes",
+            market_complex_id: "event:1",
+            status: "active",
+            mid_price: 0.47,
+            best_bid: 0.46,
+            best_ask: 0.47,
+            spread_cents: 1,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 24,
+            book_ts_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ],
+      [
+        "market#ct-no|snapshot",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "mkt-1",
+            contract_id: "ct-no",
+            market_complex_id: "event:1",
+            status: "active",
+            mid_price: 0.48,
+            best_bid: 0.47,
+            best_ask: 0.48,
+            spread_cents: 1,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 24,
+            book_ts_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ],
+      [
+        "execution_intent#plan-2|latest",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "execution_intent",
+          payload: {
+            order_plan_id: "plan-2",
+            decision_id: "decision-2",
+            sleeve_id: "cross_market_core",
+            market_complex_id: "event:1",
+            execution_style: "passive_then_cross",
+            max_notional_usd: 40,
+            legs: [
+              {
+                market_id: "mkt-1",
+                contract_id: "ct-yes",
+                side: "buy",
+                limit_price: 0.46,
+                max_size: 43.478261
+              },
+              {
+                market_id: "mkt-1",
+                contract_id: "ct-no",
+                side: "buy",
+                limit_price: 0.47,
+                max_size: 42.553191
+              }
+            ],
+            expiry_utc: "2026-03-08T00:00:30Z",
+            cancel_if_unfilled: true
+          }
+        }
+      ]
+    ])
+  );
+  const decisionLedger = new InMemoryDecisionLedgerStore();
+
+  await runExecutionTick(config(), currentState, decisionLedger, new Date("2026-03-08T00:00:01Z"));
+  const firstPassiveOrder = await currentState.queryByPkPrefix("paper_order#");
+  assert.equal(firstPassiveOrder.length, 2);
+  assert.equal(
+    firstPassiveOrder.every((row) => (row.payload as { status: string }).status === "open"),
+    true
+  );
+
+  const cancelSummary = await runExecutionTick(
+    config(),
+    currentState,
+    decisionLedger,
+    new Date("2026-03-08T00:00:05Z")
+  );
+  const cancelledOrders = (await currentState.queryByPkPrefix("paper_order#")).map(
+    (row) => row.payload as { status: string; order_style: string }
+  );
+  assert.equal(cancelSummary.action_updates >= 1, true);
+  assert.equal(
+    cancelledOrders.filter((row) => row.order_style === "passive").every((row) => row.status === "cancelled"),
+    true
+  );
+
+  const crossSummary = await runExecutionTick(
+    config(),
+    currentState,
+    decisionLedger,
+    new Date("2026-03-08T00:00:06Z")
+  );
+  assert.equal(crossSummary.paper_fill_updates >= 2, true);
+  const fills = await currentState.queryByPkPrefix("paper_fill#");
+  assert.equal(fills.length >= 2, true);
+  const positionSnapshot = await currentState.get<{
+    gross_exposure_usd: number;
+    open_orders_reserved_usd: number;
+  }>("position#paper:0xabc#event:1", "snapshot");
+  assert.equal(positionSnapshot?.event_type, "position_snapshot");
+  assert.equal(positionSnapshot?.payload.gross_exposure_usd > 0, true);
+  assert.equal(positionSnapshot?.payload.open_orders_reserved_usd, 0);
+  const finalCash = await currentState.get<{ cash_balance_usd: number }>("paper_cash#paper:0xabc", "latest");
+  assert.equal(finalCash?.event_type, "paper_cash_snapshot");
+  assert.equal(finalCash?.payload.cash_balance_usd < 500, true);
 });

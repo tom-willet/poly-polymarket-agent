@@ -4,6 +4,7 @@ import {
   type EventEnvelope as TradeCoreEnvelope,
   type ExecutionActionPayload,
   type ExecutionIntentPayload,
+  type ExecutionMarketState,
   type ExecutionOrderState
 } from "@poly/trade-core";
 import type {
@@ -14,12 +15,24 @@ import type {
   MarketSnapshotPayload
 } from "@poly/openclaw-control";
 import type { ExecutionWorkerConfig } from "./config.js";
+import {
+  applyPaperExecutionAction,
+  loadPaperOrdersForIntent,
+  paperWalletId,
+  reconcilePaperOrders,
+  toExecutionOrderState
+} from "./paperBroker.js";
 
 export interface ExecutionWorkerSummary {
   heartbeat: ExecutionHeartbeatPayload;
   scanned_intents: number;
   processed_intents: number;
   action_updates: number;
+  paper_order_updates: number;
+  paper_fill_updates: number;
+  paper_cash_updates: number;
+  paper_position_state_updates: number;
+  paper_position_snapshots: number;
   notes: string[];
 }
 
@@ -108,13 +121,7 @@ function actionEnvelopeForExpiredIntent(
 async function loadIntentMarketState(
   currentState: CurrentStateStore,
   intent: ExecutionIntentPayload
-): Promise<Array<{
-  market_id: string;
-  contract_id: string;
-  best_bid: number | null;
-  best_ask: number | null;
-  spread_cents: number | null;
-}>> {
+): Promise<ExecutionMarketState[]> {
   const states = await Promise.all(
     intent.legs.map(async (leg) => {
       const item = await currentState.get<MarketSnapshotPayload>(`market#${leg.contract_id}`, "snapshot");
@@ -127,7 +134,9 @@ async function loadIntentMarketState(
         contract_id: item.payload.contract_id,
         best_bid: item.payload.best_bid,
         best_ask: item.payload.best_ask,
-        spread_cents: item.payload.spread_cents
+        spread_cents: item.payload.spread_cents,
+        top_bid_size: item.payload.top_bid_size,
+        top_ask_size: item.payload.top_ask_size
       };
     })
   );
@@ -143,6 +152,10 @@ async function loadPrimaryAccountSnapshot(currentState: CurrentStateStore): Prom
 
 function samePayload(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function usesPaperBroker(env: ExecutionWorkerConfig["env"]): boolean {
+  return env === "paper" || env === "sim";
 }
 
 async function persistHeartbeat(
@@ -215,11 +228,38 @@ export async function runExecutionTick(
 
   let processedIntents = 0;
   let actionUpdates = 0;
+  let paperOrderUpdates = 0;
+  let paperFillUpdates = 0;
+  let paperCashUpdates = 0;
+  let paperPositionStateUpdates = 0;
+  let paperPositionSnapshots = 0;
   const notes: string[] = [];
+  const paperWallet = usesPaperBroker(config.env) ? paperWalletId(accountSnapshot?.user_address) : null;
 
   for (const row of rows) {
     const intent = row.payload;
-    const orders = orderStateForIntent(accountSnapshot, intent);
+    const marketState = await loadIntentMarketState(currentState, intent);
+    let orders = orderStateForIntent(accountSnapshot, intent);
+
+    if (paperWallet) {
+      const reconciliation = await reconcilePaperOrders(
+        config,
+        currentState,
+        decisionLedger,
+        paperWallet,
+        intent,
+        marketState,
+        nowUtc
+      );
+      paperOrderUpdates += reconciliation.order_updates;
+      paperFillUpdates += reconciliation.fill_updates;
+      paperCashUpdates += reconciliation.cash_updates;
+      paperPositionStateUpdates += reconciliation.position_state_updates;
+      paperPositionSnapshots += reconciliation.position_snapshots;
+      notes.push(...reconciliation.notes);
+      orders = toExecutionOrderState(await loadPaperOrdersForIntent(currentState, intent.order_plan_id));
+    }
+
     const action =
       Date.parse(intent.expiry_utc) <= now.getTime() && orders.length === 0
         ? actionEnvelopeForExpiredIntent(config.env, intent, nowUtc)
@@ -234,7 +274,7 @@ export async function runExecutionTick(
                 ts_utc: row.ts_utc,
                 payload: intent
               },
-              marketState: await loadIntentMarketState(currentState, intent),
+              marketState,
               orders,
               heartbeat,
               now_utc: nowUtc
@@ -245,6 +285,25 @@ export async function runExecutionTick(
     processedIntents += 1;
     if (await persistAction(currentState, decisionLedger, action)) {
       actionUpdates += 1;
+    }
+
+    if (paperWallet) {
+      const applied = await applyPaperExecutionAction(
+        config,
+        currentState,
+        decisionLedger,
+        paperWallet,
+        intent,
+        action.payload,
+        marketState,
+        nowUtc
+      );
+      paperOrderUpdates += applied.order_updates;
+      paperFillUpdates += applied.fill_updates;
+      paperCashUpdates += applied.cash_updates;
+      paperPositionStateUpdates += applied.position_state_updates;
+      paperPositionSnapshots += applied.position_snapshots;
+      notes.push(...applied.notes);
     }
   }
 
@@ -261,6 +320,11 @@ export async function runExecutionTick(
     scanned_intents: rows.length,
     processed_intents: processedIntents,
     action_updates: actionUpdates,
+    paper_order_updates: paperOrderUpdates,
+    paper_fill_updates: paperFillUpdates,
+    paper_cash_updates: paperCashUpdates,
+    paper_position_state_updates: paperPositionStateUpdates,
+    paper_position_snapshots: paperPositionSnapshots,
     notes
   };
 }
