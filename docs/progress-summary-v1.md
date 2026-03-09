@@ -146,6 +146,7 @@ Primary files:
 - `execution-worker tick` verified against real nonprod tables
 - `health#execution-heartbeat` write path verified in DynamoDB with `service=execution-worker`
 - verified that a subsequent `openclaw-control cycle` reads the worker heartbeat row instead of writing its own
+- Terraform now provisions `execution-worker` and `openclaw-runtime` infrastructure in both AWS environments
 
 ## What Was Cleaned Up
 
@@ -220,7 +221,8 @@ Open:
 ## External Blockers
 
 1. Nonprod Polymarket credentials are still needed for authenticated end-to-end verification.
-2. Production trading remains gated on Polymarket US beta enablement and internal approval.
+2. Nonprod Slack/OpenAI secret resources exist but still have no stored values, so real Slack runtime validation is blocked.
+3. Production trading remains gated on Polymarket US beta enablement and internal approval.
 
 ## Recommended Next Sequence
 

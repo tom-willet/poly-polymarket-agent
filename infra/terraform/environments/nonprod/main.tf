@@ -21,8 +21,10 @@ locals {
 
   service_names = [
     "openclaw-control",
+    "openclaw-runtime",
     "market-state",
-    "trade-core"
+    "trade-core",
+    "execution-worker"
   ]
 }
 
@@ -37,18 +39,23 @@ module "platform_foundation" {
 
   service_secret_names = {
     "openclaw-control" = [
-      "/poly/nonprod/openai-api-key",
+      "/poly/nonprod/openai-api-key"
+    ]
+    "openclaw-runtime" = [
       "/poly/nonprod/slack-app-token",
       "/poly/nonprod/slack-bot-token"
     ]
     "market-state" = []
     "trade-core"   = []
+    "execution-worker" = []
   }
 
   service_dynamodb_table_access = {
     "openclaw-control" = ["current_state", "decision_ledger"]
-    "market-state" = ["current_state"]
-    "trade-core"   = ["current_state"]
+    "openclaw-runtime" = ["current_state", "decision_ledger"]
+    "market-state"     = ["current_state"]
+    "trade-core"       = ["current_state"]
+    "execution-worker" = ["current_state", "decision_ledger"]
   }
 
   service_data_bucket_access = toset(["market-state"])

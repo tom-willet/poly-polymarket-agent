@@ -6,7 +6,7 @@ This Terraform layout implements the `M0 Foundations` baseline from the v1 spec 
 
 - One AWS foundation per environment: `nonprod` and `prod`
 - ECS cluster for always-on services
-- ECR repositories for `openclaw-control`, `market-state`, and `trade-core`
+- ECR repositories for `openclaw-control`, `openclaw-runtime`, `market-state`, `trade-core`, and `execution-worker`
 - CloudWatch log groups for each service
 - Secrets Manager secret placeholders
 - ECS task execution role plus per-service task roles
@@ -48,5 +48,7 @@ terraform plan
 - The intended workflow uses the remote S3 backend templates committed under each environment root.
 - The repo includes a bootstrap script for the current `mullet-dev` and `mullet-prod` accounts.
 - Secret resources are created as empty placeholders; populate values in Secrets Manager after apply.
+- `openclaw-runtime` is the service intended to read Slack secrets in this scaffold.
 - `trade-core` is the only service granted prod Polymarket secret access in this scaffold.
 - `market-state` now has scoped access to the shared current-state table and data bucket in both environments.
+- `execution-worker` now has scoped access to current-state and decision-ledger in both environments.

@@ -84,6 +84,7 @@ Checkpoint notes:
 - `openclaw-control` now has an integrated decision-cycle command that runs proposal generation through allocator, risk, and execution intent planning, then persists `execution_intent` rows for downstream execution
 - `openclaw-control` now derives cycle exposure and performance from persisted sources when available, with controlled fallbacks where live position data is not yet present
 - `openclaw-runtime` now provides a Slack Socket Mode adapter over the command core, but still needs live nonprod Slack validation
+- nonprod Slack/OpenAI secret placeholders exist but still have no stored values, so runtime validation is blocked on secret population rather than code
 
 ## Live GitHub Status
 
