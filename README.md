@@ -16,7 +16,8 @@ Current implementation status:
 - `M1 Market State`: public market WebSocket normalization complete.
 - `M1 Market State`: account-state polling, health checks, position snapshots, and persistence plumbing complete.
 - `M1 Market State`: nonprod DynamoDB/S3 persistence verified for the public market-data path.
-- `M1 Market State`: authenticated account-state persistence still needs live credential verification with nonprod Polymarket creds.
+- `M1 Market State`: authenticated nonprod account-state persistence verified with real Polymarket credentials.
+- `M1 Market State`: verified account currently has zero orders and zero positions, so position-bearing `position_snapshot` coverage still remains.
 - `M2 Trade Core`: allocator complete.
 - `M2 Trade Core`: deterministic risk kernel complete.
 - `M2 Trade Core`: execution intent planning, lifecycle policy, heartbeat handling, and reconciliation modules implemented.
@@ -31,6 +32,7 @@ Checkpoint notes:
 - GitHub milestones/issues are live and being used as the implementation backlog.
 - `market-state` currently emits `market_universe_snapshot`, `market_snapshot`, `market_data_health`, `account_state_snapshot`, and `account_state_health` envelopes.
 - `market-state` now also emits `position_snapshot` envelopes derived from authenticated account positions.
+- authenticated `account_state_snapshot` and `account_state_health` persistence is now verified in nonprod for wallet `0x7c5b485B9372A22bAc9A5B298e9B513A30E44A9a`.
 - Latest-state persistence uses DynamoDB for compact records and S3 for NDJSON archives.
 - `market_universe_snapshot` is archived to S3 only because the full payload exceeds DynamoDB item-size limits.
 - `trade-core` can now produce `allocator_decision`, `risk_decision`, `execution_intent`, and `execution_action` envelopes.

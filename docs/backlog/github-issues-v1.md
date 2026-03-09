@@ -74,7 +74,8 @@ Checkpoint notes:
 - nonprod IAM for `market-state` current-state and archive writes has been applied
 - public market-data persistence path has been verified end to end against nonprod DynamoDB and S3
 - `execution-worker` now persists `health#execution-heartbeat` into current-state and this path has been verified in nonprod DynamoDB
-- authenticated account-state persistence and `position_snapshot` publication remain unverified until nonprod Polymarket credentials are available
+- authenticated nonprod `account_state_snapshot` / `account_state_health` persistence is now verified with real Polymarket credentials
+- `position_snapshot` publication remains unverified in a live non-empty account because the verified wallet currently has zero positions
 - `trade-core` now has a deterministic allocator with proposal validation, ranking, and bankroll-aware sizing
 - `trade-core` now has a deterministic risk kernel with halt, reject, approve, and resize outcomes
 - `trade-core` now has deterministic execution intent planning, lifecycle action evaluation, heartbeat health tracking, and user-channel reconciliation modules
@@ -95,7 +96,7 @@ Checkpoint notes:
 
 Reason the remaining issues stay open:
 
-- `#6`: authenticated order/account normalization still needs live verification and user-channel coverage
-- `#7`: authenticated persistence path still needs live nonprod verification
+- `#6`: authenticated order/account normalization is now verified for an empty live account, but user-channel coverage and position-bearing validation still remain
+- `#7`: authenticated persistence path is now verified for account snapshots, but position-bearing runs and the remaining persistence paths still remain
 - `#11`: dedicated execution worker now exists, but the live exchange write path and Polymarket heartbeat ack loop do not
 - `#15`-`#18`: replay, scorecards, daily summaries, promotion testing, and runbook work are still ahead

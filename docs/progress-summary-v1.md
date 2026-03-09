@@ -42,6 +42,7 @@ Primary files:
 - Canonical current-state persistence implemented for compact records.
 - S3 NDJSON archive persistence implemented for emitted state events.
 - `position_snapshot` derivation implemented from authenticated account positions.
+- Authenticated nonprod `account_state_snapshot` / `account_state_health` persistence verified with real Polymarket credentials.
 
 Current emitted envelopes:
 
@@ -151,6 +152,7 @@ Primary files:
 - Terraform now provisions `execution-worker` and `openclaw-runtime` infrastructure in both AWS environments
 - nonprod `openclaw-runtime` ECS service deployed and stabilized
 - real Slack DM validation completed against the nonprod app after removing legacy Lightsail responders
+- authenticated `account_state_snapshot` and `account_state_health` writes verified in nonprod DynamoDB for wallet `0x7c5b485B9372A22bAc9A5B298e9B513A30E44A9a`
 
 ## What Was Cleaned Up
 
@@ -166,7 +168,8 @@ The repo currently stops at a deterministic, non-live, partially verified paper-
 More specifically:
 
 - Public market-state ingestion is real and verified.
-- Account-state polling and `position_snapshot` production are implemented, but still need live nonprod credential verification.
+- Account-state polling is implemented and authenticated nonprod persistence is verified.
+- `position_snapshot` production is implemented, but the verified account currently has zero positions so live position-bearing coverage is still pending.
 - `trade-core` logic is implemented and a dedicated execution worker now exists, but there is still no live exchange write path.
 - `openclaw-control` command and decision logic are implemented, and the Slack runtime is now deployed and validated in nonprod ECS.
 - The system can reason over current-state, produce proposals, allocate capital, run risk checks, plan execution, and persist the decision chain.
@@ -202,10 +205,9 @@ Open:
 
 ### Immediate Remaining Work
 
-1. Verify authenticated `market-state` account persistence in nonprod with real Polymarket credentials.
-2. Verify live `position_snapshot` writes in nonprod DynamoDB.
-3. Add exchange write authority to the execution worker.
-4. Add real Polymarket heartbeat ack handling to the execution worker.
+1. Verify live `position_snapshot` writes in nonprod DynamoDB with an account that actually holds positions.
+2. Add exchange write authority to the execution worker.
+3. Add real Polymarket heartbeat ack handling to the execution worker.
 
 ### Paper-Readiness Work
 
@@ -223,12 +225,11 @@ Open:
 
 ## External Blockers
 
-1. Nonprod Polymarket credentials are still needed for authenticated end-to-end verification.
-2. Production trading remains gated on Polymarket US beta enablement and internal approval.
+1. Production trading remains gated on Polymarket US beta enablement and internal approval.
 
 ## Recommended Next Sequence
 
-1. Finish nonprod authenticated verification for `market-state`.
+1. Verify `position_snapshot` persistence with a non-empty account.
 2. Add real exchange writes and heartbeat ack handling to the execution worker.
 3. Expand `M4` replay and scorecard work once execution-side gaps are closed.
 
