@@ -1,12 +1,11 @@
 # Progress Summary v1
 
-Date: March 7, 2026
+Date: March 9, 2026
 
 This document summarizes what has been built so far, where the project currently stops, and what remains before paper readiness and later production enablement.
 
 ## Current Codebase State
 
-- Latest pushed commit at the time of this summary: `b4ae909`
 - Default branch: `main`
 - Live trading: disabled
 - Primary runtime mode in active verification: `paper`
@@ -100,6 +99,9 @@ Primary files:
 - Decision-cycle outputs persisted into the decision ledger.
 - Slack runtime adapter implemented as `openclaw-runtime`.
 - `execution_intent` rows now persisted into current-state for downstream execution.
+- nonprod ECS deployment added for `openclaw-runtime`.
+- real nonprod Slack `status` and `risk` commands verified end to end through ECS.
+- Slack runtime now ignores bot/subtype events and supports one command per non-empty message line.
 
 Supported operator commands:
 
@@ -147,6 +149,8 @@ Primary files:
 - `health#execution-heartbeat` write path verified in DynamoDB with `service=execution-worker`
 - verified that a subsequent `openclaw-control cycle` reads the worker heartbeat row instead of writing its own
 - Terraform now provisions `execution-worker` and `openclaw-runtime` infrastructure in both AWS environments
+- nonprod `openclaw-runtime` ECS service deployed and stabilized
+- real Slack DM validation completed against the nonprod app after removing legacy Lightsail responders
 
 ## What Was Cleaned Up
 
@@ -164,7 +168,7 @@ More specifically:
 - Public market-state ingestion is real and verified.
 - Account-state polling and `position_snapshot` production are implemented, but still need live nonprod credential verification.
 - `trade-core` logic is implemented and a dedicated execution worker now exists, but there is still no live exchange write path.
-- `openclaw-control` command and decision logic are implemented, and a Slack runtime adapter exists, but the real nonprod Slack app has not been exercised end to end yet.
+- `openclaw-control` command and decision logic are implemented, and the Slack runtime is now deployed and validated in nonprod ECS.
 - The system can reason over current-state, produce proposals, allocate capital, run risk checks, plan execution, and persist the decision chain.
 - The system cannot yet place or manage real Polymarket orders end to end.
 
@@ -178,6 +182,8 @@ Closed:
 - `#5` `Implement Polymarket market discovery and tradable universe ingestion`
 - `#9` `Implement proposal normalization and portfolio allocator`
 - `#10` `Implement deterministic risk kernel and halt logic`
+- `#12` `[Epic] M3 OpenClaw control plane`
+- `#13` `Implement Slack operator commands and control workflows`
 - `#14` `Implement cross-market consistency proposal generator`
 
 Open:
@@ -187,8 +193,6 @@ Open:
 - `#7` `Persist canonical snapshots and publish state events`
 - `#8` `[Epic] M2 Trade-core service`
 - `#11` `Implement execution engine, heartbeat handling, and reconciliation`
-- `#12` `[Epic] M3 OpenClaw control plane`
-- `#13` `Implement Slack operator commands and control workflows`
 - `#15` `[Epic] M4 Replay, ledger, and paper-trading readiness`
 - `#16` `Implement decision ledger, scorecards, and daily summaries`
 - `#17` `Build replay harness and promotion test suite`
@@ -202,7 +206,6 @@ Open:
 2. Verify live `position_snapshot` writes in nonprod DynamoDB.
 3. Add exchange write authority to the execution worker.
 4. Add real Polymarket heartbeat ack handling to the execution worker.
-5. Exercise the Slack runtime end to end in the real nonprod Slack app.
 
 ### Paper-Readiness Work
 
@@ -221,15 +224,13 @@ Open:
 ## External Blockers
 
 1. Nonprod Polymarket credentials are still needed for authenticated end-to-end verification.
-2. Nonprod Slack/OpenAI secret resources exist but still have no stored values, so real Slack runtime validation is blocked.
-3. Production trading remains gated on Polymarket US beta enablement and internal approval.
+2. Production trading remains gated on Polymarket US beta enablement and internal approval.
 
 ## Recommended Next Sequence
 
 1. Finish nonprod authenticated verification for `market-state`.
-2. Verify the new Slack runtime end to end in nonprod.
-3. Add real exchange writes and heartbeat ack handling to the execution worker.
-4. Start `M4` replay and scorecard work.
+2. Add real exchange writes and heartbeat ack handling to the execution worker.
+3. Expand `M4` replay and scorecard work once execution-side gaps are closed.
 
 ## Related Documents
 

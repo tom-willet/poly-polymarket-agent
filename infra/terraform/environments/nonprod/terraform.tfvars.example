@@ -1,1 +1,2 @@
 aws_profile = "mullet-dev"
+openclaw_runtime_allowed_user_ids = ["U0123ABCDEF"]

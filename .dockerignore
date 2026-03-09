@@ -1,0 +1,14 @@
+.git
+.github
+.DS_Store
+node_modules
+docs
+deploy
+infra
+ops
+workspace
+*.log
+*.tmp
+services/*/dist
+services/*/runtime
+services/*/test

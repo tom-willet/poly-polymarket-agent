@@ -28,16 +28,12 @@ function isAllowed(userId: string | undefined, allowedUserIds: string[]): boolea
   return allowedUserIds.includes(userId);
 }
 
-export async function handleSlackText(
+async function renderSlackCommand(
   text: string,
   metadata: { userId: string; channelId: string },
   config: SlackRuntimeConfig,
   deps: RuntimeDependencies
 ): Promise<string> {
-  if (!isAllowed(metadata.userId, config.slackAllowedUserIds)) {
-    return "User is not allowed to run operator commands.";
-  }
-
   const parsed = parseSlackCommand(text);
   const controlConfig = loadControlConfig();
 
@@ -81,6 +77,53 @@ export async function handleSlackText(
   }
 
   return renderHelp();
+}
+
+function splitSlackCommands(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+export function shouldIgnoreSlackMessage(message: Record<string, unknown>): boolean {
+  const subtype = typeof message.subtype === "string" ? message.subtype : undefined;
+  if (subtype) {
+    return true;
+  }
+
+  if (typeof message.bot_id === "string" && message.bot_id.length > 0) {
+    return true;
+  }
+
+  if (typeof message.app_id === "string" && message.app_id.length > 0) {
+    return true;
+  }
+
+  return false;
+}
+
+export async function handleSlackText(
+  text: string,
+  metadata: { userId: string; channelId: string },
+  config: SlackRuntimeConfig,
+  deps: RuntimeDependencies
+): Promise<string> {
+  if (!isAllowed(metadata.userId, config.slackAllowedUserIds)) {
+    return "User is not allowed to run operator commands.";
+  }
+
+  const commands = splitSlackCommands(text);
+  if (commands.length === 0) {
+    return renderHelp();
+  }
+
+  const responses: string[] = [];
+  for (const commandText of commands) {
+    responses.push(await renderSlackCommand(commandText, metadata, config, deps));
+  }
+
+  return responses.join("\n\n");
 }
 
 export function createSlackApp(
@@ -130,6 +173,9 @@ export function createSlackApp(
 
   app.message(async ({ message, say }) => {
     if (!("channel_type" in message) || message.channel_type !== "im") {
+      return;
+    }
+    if (shouldIgnoreSlackMessage(message as unknown as Record<string, unknown>)) {
       return;
     }
 

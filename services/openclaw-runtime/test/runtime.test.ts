@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handleSlackText } from "../src/runtime.js";
+import { handleSlackText, shouldIgnoreSlackMessage } from "../src/runtime.js";
 import type { CurrentStateStore, DecisionLedgerStore } from "@poly/openclaw-control";
 
 class InMemoryCurrentStateStore implements CurrentStateStore {
@@ -150,4 +150,36 @@ test("handleSlackText rejects disallowed users", async () => {
   );
 
   assert.equal(response, "User is not allowed to run operator commands.");
+});
+
+test("handleSlackText executes one command per non-empty line", async () => {
+  process.env.RUNTIME_MODE = "paper";
+  process.env.STATE_CURRENT_TABLE = "unused";
+  process.env.DECISION_LEDGER_TABLE = "unused";
+  const response = await handleSlackText(
+    "status\n\nrisk",
+    { userId: "U1", channelId: "C1" },
+    {
+      env: "paper",
+      slackBotToken: "xoxb-test",
+      slackAppToken: "xapp-test",
+      slackAllowedUserIds: [],
+      currentStateTableName: "unused",
+      decisionLedgerTableName: "unused"
+    },
+    {
+      currentState: baseState(),
+      decisionLedger: new InMemoryDecisionLedgerStore()
+    }
+  );
+
+  assert.match(response, /Operator status snapshot/);
+  assert.match(response, /Current v1 risk posture/);
+});
+
+test("shouldIgnoreSlackMessage filters bot and subtype messages", () => {
+  assert.equal(shouldIgnoreSlackMessage({ channel_type: "im", bot_id: "B123" }), true);
+  assert.equal(shouldIgnoreSlackMessage({ channel_type: "im", app_id: "A123" }), true);
+  assert.equal(shouldIgnoreSlackMessage({ channel_type: "im", subtype: "message_changed" }), true);
+  assert.equal(shouldIgnoreSlackMessage({ channel_type: "im", text: "status", user: "U123" }), false);
 });

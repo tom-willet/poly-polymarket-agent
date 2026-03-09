@@ -45,8 +45,8 @@ module "platform_foundation" {
       "/poly/nonprod/slack-app-token",
       "/poly/nonprod/slack-bot-token"
     ]
-    "market-state" = []
-    "trade-core"   = []
+    "market-state"     = []
+    "trade-core"       = []
     "execution-worker" = []
   }
 

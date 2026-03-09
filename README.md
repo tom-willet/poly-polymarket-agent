@@ -22,10 +22,8 @@ Current implementation status:
 - `M2 Trade Core`: execution intent planning, lifecycle policy, heartbeat handling, and reconciliation modules implemented.
 - `M2 Trade Core`: dedicated execution worker implemented.
 - `M2 Trade Core`: live exchange write path remains open.
-- `M3 Control Plane`: operator command core implemented.
-- `M3 Control Plane`: cross-market consistency proposal generator implemented.
-- `M3 Control Plane`: integrated decision cycle implemented.
-- `M3 Control Plane`: Slack runtime adapter implemented.
+- `M3 Control Plane`: complete in repo and deployed to nonprod ECS.
+- `M3 Control Plane`: real nonprod Slack `status` / `risk` flow verified end to end through ECS.
 - `M4 Paper Readiness`: decision-ledger persistence started.
 
 Checkpoint notes:
@@ -44,6 +42,8 @@ Checkpoint notes:
 - `openclaw-control` now persists `execution_intent` rows into current-state for the execution worker.
 - `execution-worker` now owns `health#execution-heartbeat` and evaluates deterministic `execution_action` updates from persisted intents.
 - `openclaw-runtime` now provides a Slack Socket Mode adapter over the `openclaw-control` command core.
+- `openclaw-runtime` now ignores bot/subtype events and executes one command per non-empty Slack message line.
+- nonprod Slack traffic is now served by the ECS service `poly-orchestrator-nonprod-openclaw-runtime`, not a local laptop process.
 - Live trading remains disabled pending Polymarket US beta enablement and explicit production approval.
 
 Specs:

@@ -1,6 +1,6 @@
 # GitHub Issues Backlog v1
 
-Date: March 7, 2026
+Date: March 9, 2026
 
 This is the recommended initial GitHub Issues backlog derived from the v1 spec pack.
 
@@ -64,7 +64,8 @@ This is the recommended initial GitHub Issues backlog derived from the v1 spec p
 - `Implement proposal normalization and portfolio allocator`: completed
 - `Implement deterministic risk kernel and halt logic`: completed
 - `Implement execution engine, heartbeat handling, and reconciliation`: in progress
-- `Implement Slack operator commands and control workflows`: in progress
+- `[Epic] M3 OpenClaw control plane`: completed
+- `Implement Slack operator commands and control workflows`: completed
 - `Implement cross-market consistency proposal generator`: completed
 - `Implement decision ledger, scorecards, and daily summaries`: in progress
 
@@ -83,18 +84,18 @@ Checkpoint notes:
 - `openclaw-control` now has a deterministic proposal generator for binary complement consistency checks
 - `openclaw-control` now has an integrated decision-cycle command that runs proposal generation through allocator, risk, and execution intent planning, then persists `execution_intent` rows for downstream execution
 - `openclaw-control` now derives cycle exposure and performance from persisted sources when available, with controlled fallbacks where live position data is not yet present
-- `openclaw-runtime` now provides a Slack Socket Mode adapter over the command core, but still needs live nonprod Slack validation
-- nonprod Slack/OpenAI secret placeholders exist but still have no stored values, so runtime validation is blocked on secret population rather than code
+- `openclaw-runtime` now provides a Slack Socket Mode adapter over the command core and is deployed as the nonprod ECS service `poly-orchestrator-nonprod-openclaw-runtime`
+- the Slack runtime now ignores bot/subtype events and executes one command per non-empty Slack message line
+- nonprod Slack/OpenAI secrets are populated and real Slack `status` / `risk` validation has completed through ECS
 
 ## Live GitHub Status
 
-- Closed: `#1`, `#2`, `#3`, `#5`, `#9`, `#10`, `#14`
-- Open: `#4`, `#6`, `#7`, `#8`, `#11`, `#12`, `#13`, `#15`, `#16`, `#17`, `#18`
+- Closed: `#1`, `#2`, `#3`, `#5`, `#9`, `#10`, `#12`, `#13`, `#14`
+- Open: `#4`, `#6`, `#7`, `#8`, `#11`, `#15`, `#16`, `#17`, `#18`
 
 Reason the remaining issues stay open:
 
 - `#6`: authenticated order/account normalization still needs live verification and user-channel coverage
 - `#7`: authenticated persistence path still needs live nonprod verification
 - `#11`: dedicated execution worker now exists, but the live exchange write path and Polymarket heartbeat ack loop do not
-- `#13`: Slack runtime adapter now exists, but it has not yet been exercised end to end in the real nonprod Slack app
 - `#15`-`#18`: replay, scorecards, daily summaries, promotion testing, and runbook work are still ahead
