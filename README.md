@@ -17,6 +17,7 @@ Current implementation status:
 - `M1 Market State`: account-state polling, health checks, position snapshots, and persistence plumbing complete.
 - `M1 Market State`: nonprod DynamoDB/S3 persistence verified for the public market-data path.
 - `M1 Market State`: authenticated nonprod account-state persistence verified with real Polymarket credentials.
+- `M1 Market State`: continuous `loop` mode, Docker packaging, and nonprod ECS deployment assets are now implemented in repo.
 - `M1 Market State`: verified account currently has zero orders and zero positions, so position-bearing `position_snapshot` coverage still remains.
 - `M2 Trade Core`: allocator complete.
 - `M2 Trade Core`: deterministic risk kernel complete.
@@ -28,7 +29,8 @@ Current implementation status:
 - `M3 Control Plane`: complete in repo and deployed to nonprod ECS.
 - `M3 Control Plane`: real nonprod Slack `status` / `risk` flow verified end to end through ECS.
 - `M3 Control Plane`: `status` now reports paper cash, exposure, and paper PnL from canonical nonprod state.
-- `M3 Control Plane`: Slack now supports dedicated paper views: `paper`, `orders`, `fills`, `pnl`, and `scorecard`.
+- `M3 Control Plane`: Slack now supports dedicated paper views plus tracked-market inspection via `markets`.
+- `M3 Control Plane`: `why` now reports latest decision-cycle diagnostics plus recent allocator and risk rejection reasons.
 - `M4 Paper Readiness`: decision-ledger persistence, daily scorecard generation, and scheduled nonprod paper-cycle tasks are implemented.
 
 Checkpoint notes:
@@ -36,13 +38,16 @@ Checkpoint notes:
 - GitHub milestones/issues are live and being used as the implementation backlog.
 - `market-state` currently emits `market_universe_snapshot`, `market_snapshot`, `market_data_health`, `account_state_snapshot`, and `account_state_health` envelopes.
 - `market-state` now also emits `position_snapshot` envelopes derived from authenticated account positions.
+- `market_snapshot` payloads now include event metadata and operator-facing labels (`event_id`, `slug`, `question`, `outcome`).
 - authenticated `account_state_snapshot` and `account_state_health` persistence is now verified in nonprod for wallet `0x7c5b485B9372A22bAc9A5B298e9B513A30E44A9a`.
 - Latest-state persistence uses DynamoDB for compact records and S3 for NDJSON archives.
 - `market_universe_snapshot` is archived to S3 only because the full payload exceeds DynamoDB item-size limits.
+- nonprod Terraform now defines a dedicated `market-state` ECS service that runs the continuous `loop` entrypoint with Secrets Manager-injected Polymarket credentials.
 - `trade-core` can now produce `allocator_decision`, `risk_decision`, `execution_intent`, and `execution_action` envelopes.
 - `trade-core` can now hydrate risk and execution inputs from the canonical current-state table.
 - `openclaw-control` can now persist operator mode / pause / flatten state and produce Slack-ready operator responses.
 - `openclaw-control` now exposes dedicated Slack views for paper bankroll, open paper orders, recent paper fills, and paper PnL.
+- `openclaw-control` now exposes a `markets` view over tracked canonical snapshots and a richer `why` diagnostic summary.
 - `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for binary complement inconsistencies.
 - `openclaw-control` can now run an in-process decision cycle from proposal generation through allocator, risk, and execution intent planning.
 - `openclaw-control` now derives cycle exposure, performance, and heartbeat inputs from persisted state when available.

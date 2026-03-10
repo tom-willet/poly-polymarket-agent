@@ -7,6 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "snapshot": "tsx src/cli.ts snapshot",
     "stream": "tsx src/cli.ts stream",
+    "loop": "tsx src/cli.ts loop",
     "account-snapshot": "tsx src/cli.ts account-snapshot",
     "account-stream": "tsx src/cli.ts account-stream",
     "test": "node --import tsx --test ./test/*.test.ts"

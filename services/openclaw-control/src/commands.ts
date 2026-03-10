@@ -9,6 +9,7 @@ import type {
   AccountHealthPayload,
   CurrentStateStore,
   DecisionLedgerStore,
+  MarketSnapshotPayload,
   MarketHealthPayload,
   PaperCashSnapshotPayload,
   PaperFillPayload,
@@ -141,6 +142,14 @@ function cutoffIso(hours: number): string {
 
 function uniqueCount<T>(items: T[], key: (item: T) => string): number {
   return new Set(items.map((item) => key(item))).size;
+}
+
+function marketLabel(snapshot: MarketSnapshotPayload): string {
+  return snapshot.question || snapshot.slug || snapshot.market_id;
+}
+
+function pairPrice(snapshot: MarketSnapshotPayload): string {
+  return `${snapshot.outcome} bid=${formatPrice(snapshot.best_bid)} ask=${formatPrice(snapshot.best_ask)} spread=${snapshot.spread_cents === null ? "n/a" : `${snapshot.spread_cents.toFixed(3)}c`}`;
 }
 
 async function loadPaperViewState(context: CommandContext): Promise<PaperViewState> {
@@ -310,6 +319,47 @@ async function dailyPaperScorecard(context: CommandContext): Promise<string[]> {
   ];
 }
 
+async function trackedMarketsSummary(context: CommandContext): Promise<string[]> {
+  const marketRows = (await context.currentState.queryByPkPrefix("market#"))
+    .filter((item) => item.sk === "snapshot")
+    .map((item) => item.payload as MarketSnapshotPayload);
+
+  if (marketRows.length === 0) {
+    return ["no tracked market snapshots in current-state"];
+  }
+
+  const grouped = new Map<string, MarketSnapshotPayload[]>();
+  for (const row of marketRows) {
+    grouped.set(row.market_id, [...(grouped.get(row.market_id) ?? []), row]);
+  }
+
+  const orderedMarkets = [...grouped.values()]
+    .map((rows) => [...rows].sort((left, right) => left.outcome.localeCompare(right.outcome)))
+    .sort((left, right) => {
+      const leftTs = left[0]?.book_ts_utc ?? "";
+      const rightTs = right[0]?.book_ts_utc ?? "";
+      return rightTs.localeCompare(leftTs);
+    });
+
+  const summary = [
+    `tracked markets: ${orderedMarkets.length}`,
+    `tracked contracts: ${marketRows.length}`
+  ];
+
+  const detailLines = orderedMarkets.slice(0, 8).flatMap((rows) => {
+    const [first] = rows;
+    if (!first) {
+      return [];
+    }
+
+    const header = `${first.market_id} ${marketLabel(first)} (${first.market_complex_id}) ttr=${first.time_to_resolution_hours === null ? "n/a" : `${first.time_to_resolution_hours.toFixed(1)}h`}`;
+    const legs = rows.map((row) => pairPrice(row));
+    return [header, ...legs];
+  });
+
+  return [...summary, ...detailLines];
+}
+
 async function sleevesSummary(context: CommandContext): Promise<string[]> {
   const entries = await context.decisionLedger.query("operator#commands", 10);
   const recentCommands = entries.map((entry) => entry.payload as { command: string });
@@ -320,18 +370,50 @@ async function sleevesSummary(context: CommandContext): Promise<string[]> {
 }
 
 async function whySummary(context: CommandContext): Promise<string[]> {
-  const recent = await context.decisionLedger.query("operator#commands", 5);
-  if (recent.length === 0) {
-    return ["no operator decision history yet"];
+  const latestCycle = (await context.decisionLedger.scanByPkPrefix("decision_cycle#"))
+    .filter((entry) => entry.event_type === "decision_cycle")
+    .sort((left, right) => right.ts_utc.localeCompare(left.ts_utc))[0];
+
+  const lines: string[] = [];
+
+  if (latestCycle) {
+    const payload = latestCycle.payload as DecisionCyclePayload;
+    lines.push(
+      `latest cycle: ${latestCycle.ts_utc} proposals=${payload.proposal_count} allocator=${payload.allocator_decision_count} risk=${payload.risk_decision_count} intents=${payload.execution_intent_count}`
+    );
+    lines.push(...payload.notes.slice(0, 8));
+  } else {
+    lines.push("no decision-cycle history yet");
   }
 
-  return recent.map((entry) => {
-    const payload = entry.payload as { command: string; operator_state?: OperatorStatePayload };
-    const state = payload.operator_state;
-    return state
-      ? `${entry.ts_utc}: ${payload.command} -> mode=${state.mode}, paused=${state.paused}, flatten=${state.flatten_requested}`
-      : `${entry.ts_utc}: ${payload.command}`;
-  });
+  const allocatorRejections = (await context.decisionLedger.scanByPkPrefix("allocator_decision#"))
+    .sort((left, right) => right.ts_utc.localeCompare(left.ts_utc))
+    .map((entry) => entry.payload as { status: string; reason: string })
+    .filter((entry) => entry.status === "rejected")
+    .slice(0, 5)
+    .reverse();
+  const riskRejections = (await context.decisionLedger.scanByPkPrefix("risk_decision#"))
+    .sort((left, right) => right.ts_utc.localeCompare(left.ts_utc))
+    .map((entry) => entry.payload as { status: string; reason: string })
+    .filter((entry) => entry.status === "rejected" || entry.status === "halted")
+    .slice(0, 5)
+    .reverse();
+
+  if (allocatorRejections.length > 0) {
+    lines.push("recent allocator rejects:");
+    lines.push(...allocatorRejections.map((entry) => entry.reason));
+  }
+
+  if (riskRejections.length > 0) {
+    lines.push("recent risk rejects:");
+    lines.push(...riskRejections.map((entry) => entry.reason));
+  }
+
+  if (allocatorRejections.length === 0 && riskRejections.length === 0) {
+    lines.push("no allocator or risk rejects recorded yet");
+  }
+
+  return lines;
 }
 
 export async function handleOperatorCommand(
@@ -441,6 +523,15 @@ export async function handleOperatorCommand(
     });
   }
 
+  if (command.command === "markets") {
+    return envelope(context.env, {
+      command_id: command.command_id,
+      command: command.command,
+      summary: "Tracked market snapshot",
+      details: await trackedMarketsSummary(context)
+    });
+  }
+
   if (command.command === "orders") {
     return envelope(context.env, {
       command_id: command.command_id,
@@ -507,7 +598,7 @@ export async function handleOperatorCommand(
     return envelope(context.env, {
       command_id: command.command_id,
       command: command.command,
-      summary: "Recent operator-control decisions",
+      summary: "Recent decision diagnostics",
       details: await whySummary(context)
     });
   }

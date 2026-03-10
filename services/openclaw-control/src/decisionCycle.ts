@@ -17,7 +17,7 @@ import {
 } from "@poly/trade-core";
 import type { ControlConfig } from "./config.js";
 import type { DecisionCyclePayload, EventEnvelope, StrategyProposalPayload } from "./contracts.js";
-import { generateCrossMarketConsistencyProposals } from "./proposals.js";
+import { analyzeCrossMarketConsistency } from "./proposals.js";
 import type {
   AccountSnapshotPayload,
   CurrentStateStore,
@@ -242,11 +242,12 @@ export async function runDecisionCycle(
         ? heartbeatState.heartbeat.timeout_ms
         : executionConfig.heartbeatTimeoutMs
   };
-  const proposalEnvelopes = await generateCrossMarketConsistencyProposals({
+  const proposalAnalysis = await analyzeCrossMarketConsistency({
     env: context.env,
     config: context.config,
     currentState: context.currentState
   });
+  const proposalEnvelopes = proposalAnalysis.proposals;
   const proposals = proposalEnvelopes.map((entry) => entry.payload);
 
   if (proposals.length === 0) {
@@ -257,8 +258,7 @@ export async function runDecisionCycle(
       execution_intent_count: 0,
       notes: [
         "no eligible cross-market consistency proposals found",
-        `operator paused=${operatorState.paused}`,
-        `operator flatten_requested=${operatorState.flatten_requested}`,
+        ...proposalAnalysis.diagnostics,
         ...heartbeatState.notes
       ],
       proposals: [],
@@ -343,7 +343,7 @@ export async function runDecisionCycle(
     allocator_decision_count: allocatorDecisions.length,
     risk_decision_count: riskDecisions.length,
     execution_intent_count: executionIntents.length,
-    notes: [...exposureState.notes, ...performanceState.notes, ...heartbeatState.notes],
+    notes: [...proposalAnalysis.diagnostics, ...exposureState.notes, ...performanceState.notes, ...heartbeatState.notes],
     proposals,
     allocator_decisions: allocatorDecisions.map((entry) => entry.payload),
     risk_decisions: riskDecisions.map((entry) => entry.payload),

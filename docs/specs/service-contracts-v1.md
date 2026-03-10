@@ -1,6 +1,6 @@
 # Service Contracts v1
 
-Date: March 6, 2026
+Date: March 10, 2026
 
 Status: Frozen for v1 implementation
 
@@ -59,14 +59,18 @@ Producer:
 
 Purpose:
 
-- Provide current normalized state for one market or contract.
+- Provide current normalized state for one market contract, including operator-facing market labels.
 
 Payload:
 
 ```json
 {
   "market_id": "mkt_fed_cut_march",
+  "event_id": "evt_fed_cut_2026",
+  "slug": "fed-cut-march-2026",
+  "question": "Will the Fed cut rates by March 2026?",
   "contract_id": "ct_yes",
+  "outcome": "Yes",
   "market_complex_id": "cx_fed_cut_cluster",
   "status": "active",
   "mid_price": 0.62,
@@ -79,6 +83,13 @@ Payload:
   "book_ts_utc": "2026-03-06T20:00:00Z"
 }
 ```
+
+Additional fields:
+
+- `event_id`: upstream Polymarket event identifier when available
+- `slug`: stable market slug for operator-facing references
+- `question`: human-readable market question
+- `outcome`: outcome label for the specific contract represented by `contract_id`
 
 ## 6. `market_data_health`
 

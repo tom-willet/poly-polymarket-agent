@@ -92,3 +92,45 @@ variable "execution_worker_paper_starting_cash_usd" {
   type        = number
   default     = 500
 }
+
+variable "market_state_cpu" {
+  description = "CPU units for the nonprod market-state Fargate task."
+  type        = number
+  default     = 256
+}
+
+variable "market_state_memory" {
+  description = "Memory in MiB for the nonprod market-state Fargate task."
+  type        = number
+  default     = 512
+}
+
+variable "market_state_desired_count" {
+  description = "Desired task count for the nonprod market-state ECS service."
+  type        = number
+  default     = 1
+}
+
+variable "market_state_image_tag" {
+  description = "ECR image tag to run for the nonprod market-state ECS service."
+  type        = string
+  default     = "latest"
+}
+
+variable "market_state_asset_limit" {
+  description = "Maximum number of Polymarket contracts to track in the nonprod market-state stream."
+  type        = number
+  default     = 200
+}
+
+variable "market_state_loop_duration_seconds" {
+  description = "Seconds per nonprod market-state stream window before refreshing the universe."
+  type        = number
+  default     = 60
+}
+
+variable "market_state_account_poll_interval_seconds" {
+  description = "Seconds between authenticated account polls in the nonprod market-state loop."
+  type        = number
+  default     = 15
+}

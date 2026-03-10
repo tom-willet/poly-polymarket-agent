@@ -43,6 +43,8 @@ Primary files:
 - S3 NDJSON archive persistence implemented for emitted state events.
 - `position_snapshot` derivation implemented from authenticated account positions.
 - Authenticated nonprod `account_state_snapshot` / `account_state_health` persistence verified with real Polymarket credentials.
+- Continuous `loop` orchestration implemented to refresh the market universe, stream books, and poll account state in one long-running process.
+- Docker packaging and nonprod ECS deployment assets added for continuous `market-state` service runs.
 
 Current emitted envelopes:
 
@@ -53,12 +55,16 @@ Current emitted envelopes:
 - `account_state_health`
 - `position_snapshot`
 
+`market_snapshot` now includes `event_id`, `slug`, `question`, and `outcome` so operator surfaces and proposal diagnostics can label contracts without separate joins.
+
 Primary files:
 
 - [services/market-state/README.md](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/market-state/README.md)
 - [services/market-state/src/cli.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/market-state/src/cli.ts)
 - [services/market-state/src/accountSnapshot.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/market-state/src/accountSnapshot.ts)
 - [services/market-state/src/statePublisher.ts](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/market-state/src/statePublisher.ts)
+- [services/market-state/Dockerfile](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/services/market-state/Dockerfile)
+- [infra/terraform/environments/nonprod/market_state_service.tf](/Users/tomwillet/Desktop/repos/poly-polymarket-agent/infra/terraform/environments/nonprod/market_state_service.tf)
 
 ### M2 Trade Core
 
@@ -107,6 +113,8 @@ Primary files:
 - Slack runtime now ignores bot/subtype events and supports one command per non-empty message line.
 - `status` now includes paper cash, reserved cash, exposure, and paper PnL from canonical current-state.
 - Dedicated Slack paper views implemented: `paper`, `orders`, `fills`, `pnl`, and `scorecard`.
+- `markets` now reports the latest tracked canonical market snapshots with question/outcome labels.
+- `why` now reports the latest decision-cycle diagnostics plus recent allocator and risk rejection reasons.
 - `openclaw-runtime` now supports non-interactive `cycle` and `scorecard` task entrypoints for scheduled ECS execution.
 
 Supported operator commands:
@@ -117,6 +125,7 @@ Supported operator commands:
 - `fills`
 - `pnl`
 - `scorecard`
+- `markets`
 - `why`
 - `risk`
 - `pause`
@@ -174,6 +183,10 @@ Primary files:
 - one-off ECS `cycle` task completed successfully against the deployed runtime image
 - one-off ECS `scorecard --post` task completed successfully with exit code `0` and emitted the expected paper summary
 
+Pending deployment verification:
+
+- nonprod Terraform now defines a dedicated `market-state` ECS service plus image-push helper, but that continuous deployment path is not yet called out here as verified.
+
 ## What Was Cleaned Up
 
 - Synthetic nonprod demo market rows were removed after initial verification.
@@ -189,13 +202,15 @@ More specifically:
 
 - Public market-state ingestion is real and verified.
 - Account-state polling is implemented and authenticated nonprod persistence is verified.
+- Continuous nonprod deployment assets for `market-state` are now in repo, but the freshly added ECS service still needs apply/deploy verification.
 - `position_snapshot` production is implemented, but the verified account currently has zero positions so live position-bearing coverage is still pending.
 - `trade-core` logic is implemented and a dedicated execution worker now exists, but there is still no live exchange write path.
 - `execution-worker` now supports deterministic paper execution with virtual cash and paper positions.
 - `execution-worker` is now continuously running in nonprod ECS, and the canonical paper wallet is initialized even with zero fills.
 - `openclaw-control` command and decision logic are implemented, and the Slack runtime is now deployed and validated in nonprod ECS.
 - Slack `status` now surfaces paper bankroll state directly from current-state, so paper monitoring is operator-visible before any deposits.
-- Slack now has dedicated views for paper bankroll, open paper orders, recent paper fills, PnL, and a 24-hour paper scorecard without touching the execution path.
+- Slack now has dedicated views for paper bankroll, open paper orders, recent paper fills, PnL, a 24-hour paper scorecard, and tracked market snapshots without touching the execution path.
+- Slack `why` now surfaces the last cycle diagnostics and recent allocator/risk rejects instead of only recent operator-control writes.
 - nonprod now has automated paper-cycle and daily-scorecard scheduler jobs, but live opportunities have not yet produced meaningful paper orders or fills.
 - The system can reason over current-state, produce proposals, allocate capital, run risk checks, plan execution, and persist the decision chain.
 - The system cannot yet place or manage real Polymarket orders end to end.
@@ -230,10 +245,11 @@ Open:
 
 ### Immediate Remaining Work
 
-1. Verify live `position_snapshot` writes in nonprod DynamoDB with an account that actually holds positions.
-2. Expand daily scorecards beyond top-level paper totals into sleeve-level and market-complex-level rollups.
-3. Build replay ingestion so archived market-state and ledger events can be rerun deterministically.
-4. Add promotion checks for `sim` -> `paper` and `paper` -> `prod`.
+1. Apply and verify the new continuous nonprod `market-state` ECS service.
+2. Verify live `position_snapshot` writes in nonprod DynamoDB with an account that actually holds positions.
+3. Expand daily scorecards beyond top-level paper totals into sleeve-level and market-complex-level rollups.
+4. Build replay ingestion so archived market-state and ledger events can be rerun deterministically.
+5. Add promotion checks for `sim` -> `paper` and `paper` -> `prod`.
 
 ### Paper-Readiness Work
 
@@ -255,10 +271,11 @@ Open:
 
 ## Recommended Next Sequence
 
-1. Verify `position_snapshot` persistence with a non-empty account.
-2. Expand the daily scorecard into sleeve and market-complex rollups.
-3. Build the replay harness and promotion checks.
-4. Add real exchange writes and heartbeat ack handling only after the paper-readiness gates are in place.
+1. Apply and verify the continuous nonprod `market-state` ECS service.
+2. Verify `position_snapshot` persistence with a non-empty account.
+3. Expand the daily scorecard into sleeve and market-complex rollups.
+4. Build the replay harness and promotion checks.
+5. Add real exchange writes and heartbeat ack handling only after the paper-readiness gates are in place.
 
 ## Related Documents
 

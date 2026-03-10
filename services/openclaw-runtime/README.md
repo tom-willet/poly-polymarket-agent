@@ -10,7 +10,8 @@ Initial Slack runtime adapter for the `openclaw-control` command core.
 - Return plain-text Slack responses.
 - Ignore bot/subtype events so the runtime does not answer its own messages.
 - Execute one command per non-empty line in a Slack message.
-- Support dedicated paper operator views: `paper`, `orders`, `fills`, `pnl`, and `scorecard`.
+- Support dedicated operator views: `paper`, `orders`, `fills`, `pnl`, `scorecard`, and `markets`.
+- Surface richer `why` diagnostics from the latest decision cycle and recent allocator/risk rejections.
 - Expose non-interactive `cycle` and `scorecard` entrypoints for scheduled ECS tasks.
 
 ## Commands

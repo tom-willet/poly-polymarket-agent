@@ -2,7 +2,11 @@ import type { EventEnvelope, UniverseMarketRecord } from "./contracts.js";
 
 export interface MarketSnapshotPayload {
   market_id: string;
+  event_id: string | null;
+  slug: string;
+  question: string;
   contract_id: string;
+  outcome: string;
   market_complex_id: string;
   status: "active" | "inactive";
   mid_price: number | null;
@@ -78,7 +82,11 @@ export function toMarketSnapshotEnvelope(
     ts_utc: new Date(tsMs).toISOString(),
     payload: {
       market_id: state.market.market_id,
+      event_id: state.market.event_id,
+      slug: state.market.slug,
+      question: state.market.question,
       contract_id: state.contractId,
+      outcome: state.market.contracts.find((contract) => contract.contract_id === state.contractId)?.outcome ?? "",
       market_complex_id: state.market.market_complex_id,
       status: state.market.active && state.market.accepting_orders ? "active" : "inactive",
       mid_price: toMidPrice(state.bestBid, state.bestAsk),

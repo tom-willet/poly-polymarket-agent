@@ -12,7 +12,30 @@ interface ProposalContext {
 interface BinaryPairCandidate {
   marketId: string;
   marketComplexId: string;
+  question: string;
+  slug: string;
   legs: [MarketSnapshotPayload, MarketSnapshotPayload];
+}
+
+type CandidateRejectionReason = "spread" | "resolution" | "edge";
+
+interface CandidateEvaluationAccepted {
+  status: "accepted";
+  proposal: StrategyProposalPayload;
+}
+
+interface CandidateEvaluationRejected {
+  status: "rejected";
+  reason: CandidateRejectionReason;
+  candidate: BinaryPairCandidate;
+  detail: string;
+}
+
+type CandidateEvaluation = CandidateEvaluationAccepted | CandidateEvaluationRejected;
+
+export interface CrossMarketConsistencyAnalysis {
+  proposals: Array<EventEnvelope<StrategyProposalPayload>>;
+  diagnostics: string[];
 }
 
 function round(value: number, decimals = 6): number {
@@ -54,46 +77,67 @@ function totalCostsDecimal(config: ControlConfig, legCount: number): number {
   return (config.proposalCostPerLegCents * legCount) / 100;
 }
 
-function binaryPairs(markets: MarketSnapshotPayload[]): BinaryPairCandidate[] {
+function groupSnapshotsByMarket(markets: MarketSnapshotPayload[]): Map<string, MarketSnapshotPayload[]> {
   const byMarketId = new Map<string, MarketSnapshotPayload[]>();
   for (const market of markets) {
     byMarketId.set(market.market_id, [...(byMarketId.get(market.market_id) ?? []), market]);
   }
+  return byMarketId;
+}
 
-  const pairs: BinaryPairCandidate[] = [];
+function buildBinaryPairs(markets: MarketSnapshotPayload[]): {
+  totalMarkets: number;
+  skippedNonBinary: number;
+  skippedInactive: number;
+  candidates: BinaryPairCandidate[];
+} {
+  const byMarketId = groupSnapshotsByMarket(markets);
+  const candidates: BinaryPairCandidate[] = [];
+  let skippedNonBinary = 0;
+  let skippedInactive = 0;
+
   for (const [marketId, snapshots] of byMarketId.entries()) {
     if (snapshots.length !== 2) {
+      skippedNonBinary += 1;
       continue;
     }
     if (!snapshots.every((snapshot) => snapshot.status === "active")) {
+      skippedInactive += 1;
       continue;
     }
+
     const [left, right] = snapshots;
     if (!left || !right) {
       continue;
     }
-    pairs.push({
+
+    candidates.push({
       marketId,
       marketComplexId: left.market_complex_id,
+      question: left.question,
+      slug: left.slug,
       legs: [left, right]
     });
   }
 
-  return pairs;
+  return {
+    totalMarkets: byMarketId.size,
+    skippedNonBinary,
+    skippedInactive,
+    candidates
+  };
 }
 
-function proposalForCandidate(
-  candidate: BinaryPairCandidate,
-  context: ProposalContext
-): StrategyProposalPayload | null {
+function evaluateCandidate(candidate: BinaryPairCandidate, context: ProposalContext): CandidateEvaluation {
   const [left, right] = candidate.legs;
-  if (!left || !right) {
-    return null;
-  }
-
   const spreads = [left.spread_cents, right.spread_cents];
   if (spreads.some((spread) => spread === null || spread > context.config.proposalMaxSpreadCents)) {
-    return null;
+    return {
+      status: "rejected",
+      reason: "spread",
+      candidate,
+      detail: `${candidate.question || candidate.marketId} spread above ${context.config.proposalMaxSpreadCents}c threshold`
+    };
   }
 
   if (
@@ -102,7 +146,12 @@ function proposalForCandidate(
     left.time_to_resolution_hours < 4 ||
     right.time_to_resolution_hours < 4
   ) {
-    return null;
+    return {
+      status: "rejected",
+      reason: "resolution",
+      candidate,
+      detail: `${candidate.question || candidate.marketId} time to resolution below 4h minimum`
+    };
   }
 
   const buyBothPrice = left.best_ask !== null && right.best_ask !== null ? left.best_ask + right.best_ask : null;
@@ -114,8 +163,14 @@ function proposalForCandidate(
 
   const bestDirection = buyBothEdge >= sellBothEdge ? "buy_both" : "sell_both";
   const bestEdge = Math.max(buyBothEdge, sellBothEdge);
-  if (bestEdge * 100 < context.config.proposalMinEdgeCents) {
-    return null;
+  const edgeCents = bestEdge * 100;
+  if (edgeCents < context.config.proposalMinEdgeCents) {
+    return {
+      status: "rejected",
+      reason: "edge",
+      candidate,
+      detail: `${candidate.question || candidate.marketId} best edge ${round(edgeCents, 3)}c below ${context.config.proposalMinEdgeCents}c threshold`
+    };
   }
 
   const contracts =
@@ -138,44 +193,104 @@ function proposalForCandidate(
   );
 
   return {
-    proposal_id: crypto.randomUUID(),
-    sleeve_id: "cross_market_core",
-    market_complex_id: candidate.marketComplexId,
-    thesis:
-      bestDirection === "buy_both"
-        ? "Binary complement asks sum below par after modeled costs."
-        : "Binary complement bids sum above par after modeled costs.",
-    contracts,
-    expected_edge_after_costs: round(bestEdge),
-    confidence: confidenceFromEdge(bestEdge, totalSpreadCents),
-    max_holding_hours: round(holdingHours, 3),
-    invalidators: buildInvalidators(candidate, bestDirection),
-    sizing_hint_usd: context.config.proposalSizingHintUsd,
-    notes: `combined_${bestDirection === "buy_both" ? "ask" : "bid"}=${round(combinedPrice ?? 0, 4)} costs=${round(totalCosts, 4)}`
+    status: "accepted",
+    proposal: {
+      proposal_id: crypto.randomUUID(),
+      sleeve_id: "cross_market_core",
+      market_complex_id: candidate.marketComplexId,
+      thesis:
+        bestDirection === "buy_both"
+          ? "Binary complement asks sum below par after modeled costs."
+          : "Binary complement bids sum above par after modeled costs.",
+      contracts,
+      expected_edge_after_costs: round(bestEdge),
+      confidence: confidenceFromEdge(bestEdge, totalSpreadCents),
+      max_holding_hours: round(holdingHours, 3),
+      invalidators: buildInvalidators(candidate, bestDirection),
+      sizing_hint_usd: context.config.proposalSizingHintUsd,
+      notes: `combined_${bestDirection === "buy_both" ? "ask" : "bid"}=${round(combinedPrice ?? 0, 4)} costs=${round(totalCosts, 4)}`
+    }
   };
 }
 
-export async function generateCrossMarketConsistencyProposals(
-  context: ProposalContext
-): Promise<Array<EventEnvelope<StrategyProposalPayload>>> {
-  const operatorState = await loadOperatorState(context.currentState, context.config.defaultMode);
-  if (operatorState.paused || operatorState.flatten_requested) {
-    return [];
+function diagnosticsFromEvaluations(
+  grouped: ReturnType<typeof buildBinaryPairs>,
+  evaluations: CandidateEvaluation[],
+  operatorState: { paused: boolean; flatten_requested: boolean },
+  marketDataStale: boolean
+): string[] {
+  const lines = [
+    `tracked markets=${grouped.totalMarkets}`,
+    `binary active candidates=${grouped.candidates.length}`,
+    `skipped non-binary markets=${grouped.skippedNonBinary}`,
+    `skipped inactive markets=${grouped.skippedInactive}`,
+    `operator paused=${operatorState.paused}`,
+    `operator flatten_requested=${operatorState.flatten_requested}`,
+    `market data stale=${marketDataStale}`
+  ];
+
+  const rejectedCounts: Record<CandidateRejectionReason, number> = {
+    spread: 0,
+    resolution: 0,
+    edge: 0
+  };
+  const rejectedExamples: string[] = [];
+
+  for (const evaluation of evaluations) {
+    if (evaluation.status !== "rejected") {
+      continue;
+    }
+    rejectedCounts[evaluation.reason] += 1;
+    if (rejectedExamples.length < 3) {
+      rejectedExamples.push(evaluation.detail);
+    }
   }
 
+  lines.push(`accepted proposals=${evaluations.filter((evaluation) => evaluation.status === "accepted").length}`);
+  lines.push(`rejected on spread=${rejectedCounts.spread}`);
+  lines.push(`rejected on resolution=${rejectedCounts.resolution}`);
+  lines.push(`rejected on edge=${rejectedCounts.edge}`);
+  lines.push(...rejectedExamples);
+
+  return lines;
+}
+
+export async function analyzeCrossMarketConsistency(
+  context: ProposalContext
+): Promise<CrossMarketConsistencyAnalysis> {
+  const operatorState = await loadOperatorState(context.currentState, context.config.defaultMode);
   const health = await context.currentState.get<{ stale: boolean }>("health#market-data", "latest");
-  if (!health || health.payload.stale) {
-    return [];
-  }
+  const marketDataStale = !health || health.payload.stale;
 
   const markets = await context.currentState.queryByPkPrefix("market#");
   const snapshots = markets
     .filter((item) => item.sk === "snapshot")
     .map((item) => item.payload as MarketSnapshotPayload);
 
-  return binaryPairs(snapshots)
-    .map((candidate) => proposalForCandidate(candidate, context))
-    .filter((proposal): proposal is StrategyProposalPayload => proposal !== null)
-    .sort((left, right) => right.expected_edge_after_costs - left.expected_edge_after_costs)
-    .map((proposal) => proposalEnvelope(context.env, proposal));
+  const grouped = buildBinaryPairs(snapshots);
+
+  if (operatorState.paused || operatorState.flatten_requested || marketDataStale) {
+    return {
+      proposals: [],
+      diagnostics: diagnosticsFromEvaluations(grouped, [], operatorState, marketDataStale)
+    };
+  }
+
+  const evaluations = grouped.candidates.map((candidate) => evaluateCandidate(candidate, context));
+  const proposals = evaluations
+    .filter((evaluation): evaluation is CandidateEvaluationAccepted => evaluation.status === "accepted")
+    .map((evaluation) => proposalEnvelope(context.env, evaluation.proposal))
+    .sort((left, right) => right.payload.expected_edge_after_costs - left.payload.expected_edge_after_costs);
+
+  return {
+    proposals,
+    diagnostics: diagnosticsFromEvaluations(grouped, evaluations, operatorState, marketDataStale)
+  };
+}
+
+export async function generateCrossMarketConsistencyProposals(
+  context: ProposalContext
+): Promise<Array<EventEnvelope<StrategyProposalPayload>>> {
+  const analysis = await analyzeCrossMarketConsistency(context);
+  return analysis.proposals;
 }

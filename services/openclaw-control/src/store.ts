@@ -17,7 +17,11 @@ export interface MarketHealthPayload {
 
 export interface MarketSnapshotPayload {
   market_id: string;
+  event_id: string | null;
+  slug: string;
+  question: string;
   contract_id: string;
+  outcome: string;
   market_complex_id: string;
   status: "active" | "inactive";
   mid_price: number | null;

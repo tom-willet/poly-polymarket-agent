@@ -40,6 +40,7 @@ export function parseSlackCommand(text: string): ParsedSlackCommand {
 
   if (
     first === "paper" ||
+    first === "markets" ||
     first === "orders" ||
     first === "fills" ||
     first === "pnl" ||

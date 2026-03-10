@@ -112,7 +112,11 @@ function currentState(): InMemoryCurrentStateStore {
           event_type: "market_snapshot",
           payload: {
             market_id: "mkt-1",
+            event_id: "event-1",
+            slug: "test-market",
+            question: "Test market?",
             contract_id: "ct-yes",
+            outcome: "Yes",
             market_complex_id: "event:1",
             status: "active",
             mid_price: 0.47,
@@ -133,7 +137,11 @@ function currentState(): InMemoryCurrentStateStore {
           event_type: "market_snapshot",
           payload: {
             market_id: "mkt-1",
+            event_id: "event-1",
+            slug: "test-market",
+            question: "Test market?",
             contract_id: "ct-no",
+            outcome: "No",
             market_complex_id: "event:1",
             status: "active",
             mid_price: 0.48,

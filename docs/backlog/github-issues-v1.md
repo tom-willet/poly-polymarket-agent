@@ -73,6 +73,7 @@ Checkpoint notes:
 
 - nonprod IAM for `market-state` current-state and archive writes has been applied
 - public market-data persistence path has been verified end to end against nonprod DynamoDB and S3
+- `market-state` now has a continuous `loop` entrypoint plus committed Docker and nonprod ECS deployment assets
 - `execution-worker` now persists `health#execution-heartbeat` into current-state and this path has been verified in nonprod DynamoDB
 - authenticated nonprod `account_state_snapshot` / `account_state_health` persistence is now verified with real Polymarket credentials
 - `position_snapshot` publication remains unverified in a live non-empty account because the verified wallet currently has zero positions
@@ -93,7 +94,8 @@ Checkpoint notes:
 - `openclaw-runtime` now supports non-interactive `cycle` and `scorecard` entrypoints for scheduled ECS task runs
 - nonprod Slack/OpenAI secrets are populated and real Slack `status` / `risk` validation has completed through ECS
 - Slack `status` now reports paper cash, exposure, and paper PnL from canonical current-state
-- Slack now supports dedicated paper operator views: `paper`, `orders`, `fills`, `pnl`, and `scorecard`
+- Slack now supports dedicated paper operator views plus tracked-market inspection via `markets`
+- Slack `why` now surfaces the latest decision-cycle diagnostics and recent allocator/risk rejection reasons
 - nonprod EventBridge Scheduler now runs the paper decision cycle every 5 minutes and a daily scorecard task at 8:00 AM America/Denver
 
 ## Live GitHub Status
@@ -103,8 +105,8 @@ Checkpoint notes:
 
 Reason the remaining issues stay open:
 
-- `#6`: authenticated order/account normalization is now verified for an empty live account, but user-channel coverage and position-bearing validation still remain
-- `#7`: authenticated persistence path is now verified for account snapshots, but position-bearing runs and the remaining persistence paths still remain
+- `#6`: authenticated order/account normalization is now verified for an empty live account, and continuous service deployment assets now exist, but user-channel coverage and position-bearing validation still remain
+- `#7`: authenticated persistence path is now verified for account snapshots, but continuous nonprod service rollout verification, position-bearing runs, and the remaining persistence paths still remain
 - `#11`: dedicated execution worker now runs continuously in nonprod ECS and supports deterministic paper execution, but the live exchange write path and Polymarket heartbeat ack loop do not
 - `#15`: paper-readiness infrastructure now includes scheduled paper cycles and a daily operator scorecard, but replay, promotion tests, and runbook work remain
 - `#16`: decision ledger and initial daily scorecard are in place, but sleeve-level and market-complex scorecards still remain

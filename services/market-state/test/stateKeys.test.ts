@@ -12,7 +12,11 @@ test("currentStateKeyForEnvelope routes market snapshots by contract", () => {
     ts_utc: "2026-03-06T20:00:00Z",
     payload: {
       market_id: "m1",
+      event_id: "e1",
+      slug: "market-one",
+      question: "Market one?",
       contract_id: "c1",
+      outcome: "Yes",
       market_complex_id: "cx1",
       status: "active",
       mid_price: 0.5,

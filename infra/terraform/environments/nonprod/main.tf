@@ -45,7 +45,14 @@ module "platform_foundation" {
       "/poly/nonprod/slack-app-token",
       "/poly/nonprod/slack-bot-token"
     ]
-    "market-state"     = []
+    "market-state" = [
+      "/poly/nonprod/polymarket-user-address",
+      "/poly/nonprod/polymarket-funder-address",
+      "/poly/nonprod/polymarket-wallet-private-key",
+      "/poly/nonprod/polymarket-api-key",
+      "/poly/nonprod/polymarket-api-secret",
+      "/poly/nonprod/polymarket-api-passphrase"
+    ]
     "trade-core"       = []
     "execution-worker" = []
   }

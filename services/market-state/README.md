@@ -1,6 +1,6 @@
 # Market-State Service
 
-Initial `M1` implementation for market discovery, top-of-book normalization, and market-data health checks.
+Initial `M1` implementation for market discovery, top-of-book normalization, account polling, and continuous state publication.
 
 ## Current scope
 
@@ -9,6 +9,7 @@ Initial `M1` implementation for market discovery, top-of-book normalization, and
 - Subscribe to the public Polymarket market WebSocket by asset id.
 - Poll authenticated account state from the Polymarket CLOB and Data API.
 - Derive `position_snapshot` records from authenticated account positions.
+- Run a long-lived `loop` that refreshes the market universe, streams book updates, and polls account state in one process.
 - Emit NDJSON state events.
 - Persist latest canonical state to DynamoDB when `STATE_CURRENT_TABLE` is configured.
 - Archive emitted state events to S3 when `STATE_ARCHIVE_BUCKET` is configured.
@@ -19,6 +20,7 @@ Initial `M1` implementation for market discovery, top-of-book normalization, and
 - Full event streams are archived to S3 as NDJSON.
 - `market_universe_snapshot` is archived to S3 only.
 - `position_snapshot` is written to current-state by wallet and market complex.
+- `market_snapshot` records include operator-facing metadata: `event_id`, `slug`, `question`, and `outcome`.
 
 Reason:
 
@@ -31,6 +33,7 @@ pnpm --filter @poly/market-state snapshot
 pnpm --filter @poly/market-state snapshot -- --output runtime/universe.json
 pnpm --filter @poly/market-state stream -- --asset-limit 50 --duration-seconds 30
 pnpm --filter @poly/market-state stream -- --asset-limit 50 --duration-seconds 30 --output runtime/stream.ndjson
+pnpm --filter @poly/market-state loop -- --asset-limit 50 --duration-seconds 60 --poll-interval-seconds 15
 pnpm --filter @poly/market-state account-snapshot
 pnpm --filter @poly/market-state account-stream -- --duration-seconds 30 --poll-interval-seconds 5
 pnpm --filter @poly/market-state test
@@ -38,6 +41,15 @@ pnpm --filter @poly/market-state test
 
 `stream` writes one JSON envelope per line. This makes it usable for local piping, replay capture, and downstream ingestion.
 `account-snapshot` and `account-stream` emit `account_state_snapshot`, `account_state_health`, and one `position_snapshot` per open position.
+`loop` alternates between a fresh Gamma universe snapshot, a timed market WebSocket window, and authenticated account polling until it receives `SIGINT` or `SIGTERM`.
+
+Nonprod ECS deployment:
+
+```bash
+AWS_PROFILE=mullet-dev ./scripts/deploy/deploy_market_state_nonprod.sh
+```
+
+The committed Docker image and Terraform service definition target the ECS service `poly-orchestrator-nonprod-market-state`.
 
 ## Environment variables
 

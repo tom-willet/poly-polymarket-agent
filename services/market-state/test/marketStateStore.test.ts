@@ -51,7 +51,10 @@ test("MarketStateStore converts book updates into market snapshot envelopes", ()
 
   assert.ok(snapshot);
   assert.equal(snapshot.payload.market_id, "531202");
+  assert.equal(snapshot.payload.question, "BitBoy convicted?");
+  assert.equal(snapshot.payload.slug, "bitboy-convicted");
   assert.equal(snapshot.payload.contract_id, "yes-token");
+  assert.equal(snapshot.payload.outcome, "Yes");
   assert.equal(snapshot.payload.best_bid, 0.41);
   assert.equal(snapshot.payload.best_ask, 0.43);
   assert.equal(snapshot.payload.top_bid_size, 120);

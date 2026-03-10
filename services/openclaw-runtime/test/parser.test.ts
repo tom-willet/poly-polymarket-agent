@@ -13,6 +13,11 @@ test("parseSlackCommand recognizes operator commands", () => {
     command: "paper",
     args: []
   });
+  assert.deepEqual(parseSlackCommand("markets"), {
+    kind: "operator",
+    command: "markets",
+    args: []
+  });
   assert.deepEqual(parseSlackCommand("orders"), {
     kind: "operator",
     command: "orders",

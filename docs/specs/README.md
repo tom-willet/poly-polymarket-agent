@@ -1,6 +1,6 @@
 # Spec Pack v1
 
-Date: March 7, 2026
+Date: March 10, 2026
 
 This directory contains the build-readiness specs for the Polymarket orchestrator system.
 
@@ -24,9 +24,10 @@ Implementation checkpoint:
 
 - `M0 Foundations` has been provisioned for `nonprod` and `prod`.
 - `market-state` implements public market discovery, public book-stream normalization, authenticated account polling, and `position_snapshot` derivation.
+- `market-state` also implements a long-running `loop` entrypoint for continuous ECS deployment.
 - `market-state` persists compact current-state records to DynamoDB and archives NDJSON event streams to S3.
 - Public market-data persistence has been verified in nonprod AWS.
-- Authenticated account-state persistence still needs live verification with nonprod Polymarket credentials.
+- Authenticated account-state persistence has been verified in nonprod AWS with real Polymarket credentials.
 - `trade-core` implements allocator, risk, execution planning, lifecycle action policy, and current-state hydration.
 - `execution-worker` implements heartbeat ownership and deterministic execution-action evaluation from persisted intents.
 - `openclaw-control` implements operator commands, proposal generation, decision-cycle orchestration, and ledger persistence.

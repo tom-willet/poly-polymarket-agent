@@ -52,6 +52,7 @@ export function renderHelp(): string {
     bullet([
       "status",
       "paper",
+      "markets",
       "orders",
       "fills",
       "pnl",

@@ -54,6 +54,68 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+function installShutdownHandlers(): { isStopping: () => boolean; cleanup: () => void } {
+  let stopping = false;
+  const handler = () => {
+    stopping = true;
+  };
+
+  process.on("SIGINT", handler);
+  process.on("SIGTERM", handler);
+
+  return {
+    isStopping: () => stopping,
+    cleanup: () => {
+      process.off("SIGINT", handler);
+      process.off("SIGTERM", handler);
+    }
+  };
+}
+
+async function publishAccountState(
+  env: "sim" | "paper" | "prod",
+  accountClient: PolymarketAccountClient,
+  store: AccountStateStore,
+  emitEnvelope: (envelope: Parameters<ReturnType<typeof createStatePublisher>["publish"]>[0]) => Promise<void>,
+  staleAfterMs: number,
+  tsMs = Date.now()
+): Promise<void> {
+  try {
+    const accountSnapshot = store.apply(await accountClient.fetchAccountSnapshot(), tsMs);
+    await emitEnvelope(accountSnapshot);
+    const positionSnapshots = toPositionSnapshotEnvelopes(env, accountSnapshot.payload, tsMs);
+    for (const positionSnapshot of positionSnapshots) {
+      await emitEnvelope(positionSnapshot);
+    }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    store.recordFailure(message);
+  }
+
+  await emitEnvelope(store.health(Date.now(), staleAfterMs));
+}
+
+async function runAccountPollingWindow(
+  env: "sim" | "paper" | "prod",
+  accountClient: PolymarketAccountClient,
+  store: AccountStateStore,
+  emitEnvelope: (envelope: Parameters<ReturnType<typeof createStatePublisher>["publish"]>[0]) => Promise<void>,
+  staleAfterMs: number,
+  pollIntervalSeconds: number,
+  durationSeconds: number,
+  isStopping: () => boolean
+): Promise<void> {
+  const deadlineMs = Date.now() + durationSeconds * 1000;
+  while (!isStopping() && Date.now() <= deadlineMs) {
+    await publishAccountState(env, accountClient, store, emitEnvelope, staleAfterMs, Date.now());
+
+    if (Date.now() + pollIntervalSeconds * 1000 > deadlineMs) {
+      break;
+    }
+    await sleep(pollIntervalSeconds * 1000);
+  }
+}
+
 async function main(): Promise<void> {
   process.stdout.on("error", (error: NodeJS.ErrnoException) => {
     if (error.code === "EPIPE") {
@@ -64,12 +126,12 @@ async function main(): Promise<void> {
   });
 
   const { command, outputPath, assetLimit, durationSeconds, pollIntervalSeconds } = parseArgs(process.argv);
-  if (!["snapshot", "stream", "account-snapshot", "account-stream"].includes(command)) {
+  if (!["snapshot", "stream", "account-snapshot", "account-stream", "loop"].includes(command)) {
     throw new Error(`Unsupported command "${command}"`);
   }
 
   const config = loadConfig();
-  const publisher = createStatePublisher(config, command);
+  const publisher = createStatePublisher(config, command === "loop" ? "stream" : command);
   const gammaClient = new GammaMarketClient(config);
   const snapshot = command.startsWith("account-") ? null : await gammaClient.buildSnapshotEnvelope();
 
@@ -155,30 +217,67 @@ async function main(): Promise<void> {
         return emitEnvelope(healthSnapshot);
       }
     });
-  } else {
+  } else if (command === "account-stream") {
     const accountClient = new PolymarketAccountClient(config);
     const store = new AccountStateStore(config.env);
-    const deadlineMs = Date.now() + durationSeconds * 1000;
+    await runAccountPollingWindow(
+      config.env,
+      accountClient,
+      store,
+      emitEnvelope,
+      config.accountStateStaleAfterMs,
+      pollIntervalSeconds,
+      durationSeconds,
+      () => false
+    );
+  } else {
+    const shutdown = installShutdownHandlers();
+    const accountClient = config.polyUserAddress ? new PolymarketAccountClient(config) : null;
+    const accountStore = new AccountStateStore(config.env);
 
-    while (Date.now() <= deadlineMs) {
-      try {
-        const tsMs = Date.now();
-        const accountSnapshot = store.apply(await accountClient.fetchAccountSnapshot(), tsMs);
-        await emitEnvelope(accountSnapshot);
-        const positionSnapshots = toPositionSnapshotEnvelopes(config.env, accountSnapshot.payload, tsMs);
-        for (const positionSnapshot of positionSnapshots) {
-          await emitEnvelope(positionSnapshot);
+    try {
+      while (!shutdown.isStopping()) {
+        const loopSnapshot = await gammaClient.buildSnapshotEnvelope();
+        await emitEnvelope(loopSnapshot);
+
+        const marketStreamPromise = marketChannel.streamMarkets(loopSnapshot.payload.markets, {
+          assetLimit,
+          durationSeconds,
+          onSnapshot: (marketSnapshot) => emitEnvelope(marketSnapshot),
+          onHealth: (healthSnapshot) => emitEnvelope(healthSnapshot)
+        });
+
+        const accountStreamPromise = accountClient
+          ? runAccountPollingWindow(
+              config.env,
+              accountClient,
+              accountStore,
+              emitEnvelope,
+              config.accountStateStaleAfterMs,
+              pollIntervalSeconds,
+              durationSeconds,
+              shutdown.isStopping
+            )
+          : Promise.resolve();
+
+        const [marketResult, accountResult] = await Promise.allSettled([marketStreamPromise, accountStreamPromise]);
+
+        if (marketResult.status === "rejected") {
+          const message = marketResult.reason instanceof Error ? marketResult.reason.message : String(marketResult.reason);
+          process.stderr.write(`market-state loop market stream error: ${message}\n`);
         }
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        store.recordFailure(message);
-      }
 
-      await emitEnvelope(store.health(Date.now(), config.accountStateStaleAfterMs));
-      if (Date.now() + pollIntervalSeconds * 1000 > deadlineMs) {
-        break;
+        if (accountResult.status === "rejected") {
+          const message = accountResult.reason instanceof Error ? accountResult.reason.message : String(accountResult.reason);
+          process.stderr.write(`market-state loop account stream error: ${message}\n`);
+        }
+
+        if (!shutdown.isStopping()) {
+          await sleep(1000);
+        }
       }
-      await sleep(pollIntervalSeconds * 1000);
+    } finally {
+      shutdown.cleanup();
     }
   }
 

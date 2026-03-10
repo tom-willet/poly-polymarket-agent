@@ -85,6 +85,56 @@ function baseContext() {
             recent_trade_count: 0
           }
         }
+      ],
+      [
+        "market#ct-yes|snapshot",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "531202",
+            event_id: "21662",
+            slug: "bitboy-convicted",
+            question: "BitBoy convicted?",
+            contract_id: "ct-yes",
+            outcome: "Yes",
+            market_complex_id: "event:21662",
+            status: "active",
+            mid_price: 0.1425,
+            best_bid: 0.14,
+            best_ask: 0.145,
+            spread_cents: 0.5,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 584.653,
+            book_ts_utc: "2026-03-07T04:00:00Z"
+          }
+        }
+      ],
+      [
+        "market#ct-no|snapshot",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "531202",
+            event_id: "21662",
+            slug: "bitboy-convicted",
+            question: "BitBoy convicted?",
+            contract_id: "ct-no",
+            outcome: "No",
+            market_complex_id: "event:21662",
+            status: "active",
+            mid_price: 0.8575,
+            best_bid: 0.855,
+            best_ask: 0.86,
+            spread_cents: 0.5,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 584.653,
+            book_ts_utc: "2026-03-07T04:00:00Z"
+          }
+        }
       ]
     ])
   );
@@ -303,6 +353,47 @@ async function seedScorecardLedger(context: ReturnType<typeof baseContext>): Pro
   });
 }
 
+async function seedWhyLedger(context: ReturnType<typeof baseContext>): Promise<void> {
+  await context.decisionLedger.put("decision_cycle#cycle-latest", "2026-03-10T01:00:00Z", {
+    event_type: "decision_cycle",
+    ts_utc: "2026-03-10T01:00:00Z",
+    payload: {
+      proposal_count: 0,
+      allocator_decision_count: 0,
+      risk_decision_count: 0,
+      execution_intent_count: 0,
+      notes: [
+        "no eligible cross-market consistency proposals found",
+        "tracked markets=1",
+        "binary active candidates=1",
+        "accepted proposals=0",
+        "rejected on edge=1",
+        "BitBoy convicted? best edge 0.5c below 3c threshold"
+      ],
+      proposals: [],
+      allocator_decisions: [],
+      risk_decisions: [],
+      execution_intents: []
+    }
+  });
+  await context.decisionLedger.put("allocator_decision#decision-1", "2026-03-10T00:59:00Z", {
+    event_type: "allocator_decision",
+    ts_utc: "2026-03-10T00:59:00Z",
+    payload: {
+      status: "rejected",
+      reason: "proposal below bankroll minimum"
+    }
+  });
+  await context.decisionLedger.put("risk_decision#decision-2", "2026-03-10T00:58:00Z", {
+    event_type: "risk_decision",
+    ts_utc: "2026-03-10T00:58:00Z",
+    payload: {
+      status: "rejected",
+      reason: "insufficient order book depth"
+    }
+  });
+}
+
 test("status reports operator and state health summary", async () => {
   const response = await handleOperatorCommand(
     {
@@ -357,6 +448,24 @@ test("paper reports high-level paper portfolio view", async () => {
   assert.match(response.payload.details.join("\n"), /paper wallet: paper:0xabc/);
   assert.match(response.payload.details.join("\n"), /open paper orders: 1/);
   assert.match(response.payload.details.join("\n"), /paper fills recorded: 1/);
+});
+
+test("markets reports currently tracked market snapshots with labels", async () => {
+  const response = await handleOperatorCommand(
+    {
+      command_id: "cmd-markets",
+      user_id: "u-1",
+      channel_id: "c-1",
+      command: "markets"
+    },
+    baseContext()
+  );
+
+  assert.equal(response.payload.summary, "Tracked market snapshot");
+  assert.match(response.payload.details.join("\n"), /tracked markets: 1/);
+  assert.match(response.payload.details.join("\n"), /531202 BitBoy convicted\?/);
+  assert.match(response.payload.details.join("\n"), /Yes bid=0\.1400 ask=0\.1450 spread=0\.500c/);
+  assert.match(response.payload.details.join("\n"), /No bid=0\.8550 ask=0\.8600 spread=0\.500c/);
 });
 
 test("orders only reports open paper orders", async () => {
@@ -445,6 +554,30 @@ test("scorecard reports rolling daily paper activity", async () => {
   assert.match(response.payload.details.join("\n"), /paper orders cancelled: 1/);
   assert.match(response.payload.details.join("\n"), /paper fills: 1/);
   assert.match(response.payload.details.join("\n"), /paper filled notional: \$4\.10/);
+});
+
+test("why reports recent decision diagnostics and rejection reasons", async () => {
+  const context = baseContext();
+  await seedWhyLedger(context);
+
+  const response = await handleOperatorCommand(
+    {
+      command_id: "cmd-why",
+      user_id: "u-1",
+      channel_id: "c-1",
+      command: "why"
+    },
+    context
+  );
+
+  assert.equal(response.payload.summary, "Recent decision diagnostics");
+  assert.match(response.payload.details.join("\n"), /latest cycle: 2026-03-10T01:00:00Z proposals=0/);
+  assert.match(response.payload.details.join("\n"), /rejected on edge=1/);
+  assert.match(response.payload.details.join("\n"), /BitBoy convicted\? best edge 0\.5c below 3c threshold/);
+  assert.match(response.payload.details.join("\n"), /recent allocator rejects:/);
+  assert.match(response.payload.details.join("\n"), /proposal below bankroll minimum/);
+  assert.match(response.payload.details.join("\n"), /recent risk rejects:/);
+  assert.match(response.payload.details.join("\n"), /insufficient order book depth/);
 });
 
 test("pause persists operator state and logs to ledger", async () => {

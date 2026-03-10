@@ -16,6 +16,7 @@ Initial `M3` control-plane implementation for operator commands and persisted co
   - `fills`
   - `pnl`
   - `scorecard`
+  - `markets`
   - `why`
   - `risk`
   - `pause`
@@ -49,9 +50,11 @@ pnpm --filter @poly/openclaw-control cycle
 - The service reads canonical state from `STATE_CURRENT_TABLE`.
 - Operator actions are written to both current state and the decision ledger.
 - Proposal generation is currently limited to binary complement consistency checks inside one market.
+- `markets` summarizes the latest tracked canonical `market_snapshot` rows with question/outcome labels and top-of-book prices.
 - `cycle` now derives exposure from `position_snapshot` rows when available, otherwise falls back to account state.
 - `cycle` now derives performance from `position_snapshot` rows when available, otherwise falls back to zero.
 - `cycle` now derives execution heartbeat from current-state health when available, with a non-prod fallback policy.
 - `cycle` now persists `execution_intent` rows into current-state for the execution worker to consume.
+- `cycle` now persists proposal-analysis diagnostics into the decision ledger, and `why` surfaces the latest cycle plus recent allocator and risk rejection reasons.
 - `scorecard` summarizes the last 24 hours of decision-ledger activity plus canonical paper state.
 - Trade execution authority remains outside the control plane.

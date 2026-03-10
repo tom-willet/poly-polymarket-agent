@@ -52,8 +52,10 @@ terraform plan
 - `trade-core` is the only service granted prod Polymarket secret access in this scaffold.
 - `market-state` now has scoped access to the shared current-state table and data bucket in both environments.
 - `execution-worker` now has scoped access to current-state and decision-ledger in both environments.
-- nonprod now includes dedicated ECS services for both `openclaw-runtime` and `execution-worker`.
-- nonprod now also defines an ECS service for `openclaw-runtime` with default-VPC networking and Secrets Manager injection for Slack Socket Mode tokens.
+- nonprod now defines dedicated ECS services for `market-state`, `openclaw-runtime`, and `execution-worker`.
+- nonprod `market-state` runs the continuous `loop` entrypoint with default-VPC networking, Secrets Manager injection for authenticated Polymarket polling, and tunable asset/account polling windows via Terraform variables.
+- nonprod `openclaw-runtime` uses default-VPC networking and Secrets Manager injection for Slack Socket Mode tokens.
 - nonprod now also defines EventBridge Scheduler jobs for `openclaw-runtime`:
   - a decision-cycle task every 5 minutes
   - a daily paper-scorecard task at 8:00 AM America/Denver
+- the companion image-push helper for the new nonprod `market-state` service lives at `scripts/deploy/deploy_market_state_nonprod.sh`.

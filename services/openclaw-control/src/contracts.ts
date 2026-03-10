@@ -15,6 +15,7 @@ export interface OperatorCommandPayload {
   command:
     | "status"
     | "paper"
+    | "markets"
     | "orders"
     | "fills"
     | "pnl"
