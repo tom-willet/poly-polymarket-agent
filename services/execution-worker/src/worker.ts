@@ -17,6 +17,7 @@ import type {
 import type { ExecutionWorkerConfig } from "./config.js";
 import {
   applyPaperExecutionAction,
+  ensurePaperCashSnapshot,
   loadPaperOrdersForIntent,
   paperWalletId,
   reconcilePaperOrders,
@@ -146,7 +147,9 @@ async function loadIntentMarketState(
 
 async function loadPrimaryAccountSnapshot(currentState: CurrentStateStore): Promise<AccountSnapshotPayload | null> {
   const accounts = await currentState.queryByPkPrefix("account#");
-  const snapshot = accounts.find((item) => item.sk === "snapshot");
+  const snapshot = accounts
+    .filter((item) => item.sk === "snapshot")
+    .sort((left, right) => right.ts_utc.localeCompare(left.ts_utc))[0];
   return (snapshot?.payload as AccountSnapshotPayload | undefined) ?? null;
 }
 
@@ -235,6 +238,10 @@ export async function runExecutionTick(
   let paperPositionSnapshots = 0;
   const notes: string[] = [];
   const paperWallet = usesPaperBroker(config.env) ? paperWalletId(accountSnapshot?.user_address) : null;
+
+  if (paperWallet) {
+    paperCashUpdates += await ensurePaperCashSnapshot(config, currentState, decisionLedger, paperWallet, nowUtc);
+  }
 
   for (const row of rows) {
     const intent = row.payload;

@@ -295,6 +295,30 @@ async function loadCashSnapshot(
   };
 }
 
+export async function ensurePaperCashSnapshot(
+  config: ExecutionWorkerConfig,
+  currentState: CurrentStateStore,
+  decisionLedger: DecisionLedgerStore,
+  walletId: string,
+  tsUtc: string
+): Promise<number> {
+  const existing = await getLatest<PaperCashSnapshotPayload>(currentState, `paper_cash#${walletId}`);
+  const seeded = await loadCashSnapshot(currentState, walletId, config.paperStartingCashUsd, tsUtc);
+  const recomputed = await recomputeCashSnapshot(currentState, seeded, walletId);
+  const changed =
+    !existing ||
+    JSON.stringify(existing.payload) !==
+      JSON.stringify({
+        ...recomputed
+      });
+  if (!changed) {
+    return 0;
+  }
+
+  await persistPaperCash(config, currentState, decisionLedger, recomputed, tsUtc);
+  return 1;
+}
+
 async function loadPositionState(
   currentState: CurrentStateStore,
   walletId: string,

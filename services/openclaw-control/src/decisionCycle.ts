@@ -75,7 +75,9 @@ function toTradeCoreProposal(proposal: StrategyProposalPayload): TradeCorePropos
 
 async function selectAccountUserAddress(currentState: CurrentStateStore): Promise<string> {
   const accounts = await currentState.queryByPkPrefix("account#");
-  const snapshots = accounts.filter((item) => item.sk === "snapshot");
+  const snapshots = accounts
+    .filter((item) => item.sk === "snapshot")
+    .sort((left, right) => right.ts_utc.localeCompare(left.ts_utc));
   if (snapshots.length === 0) {
     throw new Error("No account snapshot available for decision cycle");
   }

@@ -38,3 +38,33 @@ variable "openclaw_runtime_image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "execution_worker_cpu" {
+  description = "CPU units for the nonprod execution-worker Fargate task."
+  type        = number
+  default     = 256
+}
+
+variable "execution_worker_memory" {
+  description = "Memory in MiB for the nonprod execution-worker Fargate task."
+  type        = number
+  default     = 512
+}
+
+variable "execution_worker_desired_count" {
+  description = "Desired task count for the nonprod execution-worker ECS service."
+  type        = number
+  default     = 1
+}
+
+variable "execution_worker_image_tag" {
+  description = "ECR image tag to run for the nonprod execution-worker ECS service."
+  type        = string
+  default     = "latest"
+}
+
+variable "execution_worker_paper_starting_cash_usd" {
+  description = "Starting virtual bankroll for the nonprod paper broker."
+  type        = number
+  default     = 500
+}

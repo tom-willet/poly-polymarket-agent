@@ -52,4 +52,5 @@ terraform plan
 - `trade-core` is the only service granted prod Polymarket secret access in this scaffold.
 - `market-state` now has scoped access to the shared current-state table and data bucket in both environments.
 - `execution-worker` now has scoped access to current-state and decision-ledger in both environments.
+- nonprod now includes dedicated ECS services for both `openclaw-runtime` and `execution-worker`.
 - nonprod now also defines an ECS service for `openclaw-runtime` with default-VPC networking and Secrets Manager injection for Slack Socket Mode tokens.

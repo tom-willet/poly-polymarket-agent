@@ -8,7 +8,9 @@ import type {
   AccountHealthPayload,
   CurrentStateStore,
   DecisionLedgerStore,
-  MarketHealthPayload
+  MarketHealthPayload,
+  PaperCashSnapshotPayload,
+  PositionSnapshotPayload
 } from "./store.js";
 import { loadOperatorState } from "./store.js";
 
@@ -93,6 +95,49 @@ async function accountHealthSummary(context: CommandContext): Promise<string[]> 
     `tracked accounts: ${healthRows.length}`,
     `stale accounts: ${staleCount}`,
     `reconciliation failures: ${badRecon}`
+  ];
+}
+
+function formatUsd(value: number): string {
+  const rounded = Number(value.toFixed(2));
+  return `$${rounded.toFixed(2)}`;
+}
+
+async function paperPortfolioSummary(context: CommandContext): Promise<string[]> {
+  const cashRows = (await context.currentState.queryByPkPrefix("paper_cash#"))
+    .filter((item) => item.sk === "latest")
+    .sort((left, right) => right.ts_utc.localeCompare(left.ts_utc));
+
+  const latestCash = cashRows[0]?.payload as PaperCashSnapshotPayload | undefined;
+  const positionRows = (await context.currentState.queryByPkPrefix("position#paper:"))
+    .filter((item) => item.sk === "snapshot")
+    .map((item) => item.payload as PositionSnapshotPayload)
+    .filter((item) => !latestCash || item.wallet_id === latestCash.wallet_id);
+
+  if (!latestCash && positionRows.length === 0) {
+    return ["paper portfolio: not initialized"];
+  }
+
+  const cash = latestCash ?? {
+    cash_balance_usd: 0,
+    available_cash_usd: 0,
+    reserved_cash_usd: 0,
+    realized_pnl_usd: 0
+  };
+  const grossExposureUsd = positionRows.reduce((sum, row) => sum + row.gross_exposure_usd, 0);
+  const realizedPnlUsd =
+    positionRows.length > 0
+      ? positionRows.reduce((sum, row) => sum + row.realized_pnl_usd, 0)
+      : cash.realized_pnl_usd;
+  const unrealizedPnlUsd = positionRows.reduce((sum, row) => sum + row.unrealized_pnl_usd, 0);
+
+  return [
+    `paper cash: ${formatUsd(cash.cash_balance_usd)}`,
+    `paper available cash: ${formatUsd(cash.available_cash_usd)}`,
+    `paper reserved cash: ${formatUsd(cash.reserved_cash_usd)}`,
+    `paper positions tracked: ${positionRows.length}`,
+    `paper gross exposure: ${formatUsd(grossExposureUsd)}`,
+    `paper pnl: realized=${formatUsd(realizedPnlUsd)}, unrealized=${formatUsd(unrealizedPnlUsd)}`
   ];
 }
 
@@ -207,7 +252,8 @@ export async function handleOperatorCommand(
       `paused: ${operatorState.paused}`,
       `flatten requested: ${operatorState.flatten_requested}`,
       ...(await marketHealthSummary(context)),
-      ...(await accountHealthSummary(context))
+      ...(await accountHealthSummary(context)),
+      ...(await paperPortfolioSummary(context))
     ];
     return envelope(context.env, {
       command_id: command.command_id,

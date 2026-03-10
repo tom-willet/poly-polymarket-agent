@@ -105,6 +105,53 @@ test("status reports operator and state health summary", async () => {
   assert.equal(response.payload.summary, "Operator status snapshot");
   assert.match(response.payload.details.join("\n"), /market data: fresh/);
   assert.match(response.payload.details.join("\n"), /tracked accounts: 1/);
+  assert.match(response.payload.details.join("\n"), /paper portfolio: not initialized/);
+});
+
+test("status reports paper cash and exposure when paper portfolio exists", async () => {
+  const context = baseContext();
+  await context.currentState.put("paper_cash#paper:0xabc", "latest", {
+    ts_utc: "2026-03-10T00:00:00Z",
+    event_type: "paper_cash_snapshot",
+    payload: {
+      wallet_id: "paper:0xabc",
+      starting_cash_usd: 500,
+      cash_balance_usd: 460,
+      reserved_cash_usd: 20,
+      available_cash_usd: 440,
+      realized_pnl_usd: 5,
+      updated_at_utc: "2026-03-10T00:00:00Z"
+    }
+  });
+  await context.currentState.put("position#paper:0xabc#event:1", "snapshot", {
+    ts_utc: "2026-03-10T00:00:00Z",
+    event_type: "position_snapshot",
+    payload: {
+      wallet_id: "paper:0xabc",
+      sleeve_id: "cross_market_core",
+      market_complex_id: "event:1",
+      gross_exposure_usd: 40,
+      net_exposure_usd: 40,
+      realized_pnl_usd: 5,
+      unrealized_pnl_usd: 2,
+      open_orders_reserved_usd: 20,
+      snapshot_ts_utc: "2026-03-10T00:00:00Z"
+    }
+  });
+
+  const response = await handleOperatorCommand(
+    {
+      command_id: "cmd-1b",
+      user_id: "u-1",
+      channel_id: "c-1",
+      command: "status"
+    },
+    context
+  );
+
+  assert.match(response.payload.details.join("\n"), /paper cash: \$460\.00/);
+  assert.match(response.payload.details.join("\n"), /paper gross exposure: \$40\.00/);
+  assert.match(response.payload.details.join("\n"), /paper pnl: realized=\$5\.00, unrealized=\$2\.00/);
 });
 
 test("pause persists operator state and logs to ledger", async () => {

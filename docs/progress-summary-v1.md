@@ -72,6 +72,7 @@ Primary files:
 - Hydration from current-state implemented for risk and execution planning.
 - Dedicated `execution-worker` service implemented on top of the deterministic execution modules.
 - Deterministic paper broker implemented inside `execution-worker` for passive orders, cancel escalation, cross fills, cash, and portfolio state.
+- nonprod ECS deployment added for `execution-worker`, and the worker now runs continuously instead of only via manual ticks.
 
 Current emitted envelopes:
 
@@ -104,6 +105,7 @@ Primary files:
 - nonprod ECS deployment added for `openclaw-runtime`.
 - real nonprod Slack `status` and `risk` commands verified end to end through ECS.
 - Slack runtime now ignores bot/subtype events and supports one command per non-empty message line.
+- `status` now includes paper cash, reserved cash, exposure, and paper PnL from canonical current-state.
 
 Supported operator commands:
 
@@ -151,6 +153,9 @@ Primary files:
 - `health#execution-heartbeat` write path verified in DynamoDB with `service=execution-worker`
 - verified that a subsequent `openclaw-control cycle` reads the worker heartbeat row instead of writing its own
 - Terraform now provisions `execution-worker` and `openclaw-runtime` infrastructure in both AWS environments
+- nonprod `execution-worker` ECS service deployed and stabilized
+- `paper_cash_snapshot` verified in nonprod DynamoDB for wallet `paper:0x7c5b485B9372A22bAc9A5B298e9B513A30E44A9a` with starting cash `$500.00`
+- `openclaw-control status` verified against canonical nonprod state with paper portfolio lines included
 - nonprod `openclaw-runtime` ECS service deployed and stabilized
 - real Slack DM validation completed against the nonprod app after removing legacy Lightsail responders
 - authenticated `account_state_snapshot` and `account_state_health` writes verified in nonprod DynamoDB for wallet `0x7c5b485B9372A22bAc9A5B298e9B513A30E44A9a`
@@ -174,7 +179,9 @@ More specifically:
 - `position_snapshot` production is implemented, but the verified account currently has zero positions so live position-bearing coverage is still pending.
 - `trade-core` logic is implemented and a dedicated execution worker now exists, but there is still no live exchange write path.
 - `execution-worker` now supports deterministic paper execution with virtual cash and paper positions.
+- `execution-worker` is now continuously running in nonprod ECS, and the canonical paper wallet is initialized even with zero fills.
 - `openclaw-control` command and decision logic are implemented, and the Slack runtime is now deployed and validated in nonprod ECS.
+- Slack `status` now surfaces paper bankroll state directly from current-state, so paper monitoring is operator-visible before any deposits.
 - The system can reason over current-state, produce proposals, allocate capital, run risk checks, plan execution, and persist the decision chain.
 - The system cannot yet place or manage real Polymarket orders end to end.
 
@@ -208,10 +215,10 @@ Open:
 
 ### Immediate Remaining Work
 
-1. Run the new paper broker continuously in nonprod and verify paper portfolio rows in DynamoDB.
-2. Verify live `position_snapshot` writes in nonprod DynamoDB with an account that actually holds positions.
-3. Add exchange write authority to the execution worker.
-4. Add real Polymarket heartbeat ack handling to the execution worker.
+1. Verify live `position_snapshot` writes in nonprod DynamoDB with an account that actually holds positions.
+2. Add exchange write authority to the execution worker.
+3. Add real Polymarket heartbeat ack handling to the execution worker.
+4. Add Slack views for paper fills, open paper orders, and daily paper PnL.
 
 ### Paper-Readiness Work
 
@@ -233,9 +240,9 @@ Open:
 
 ## Recommended Next Sequence
 
-1. Run the paper broker in nonprod and verify paper portfolio state end to end.
-2. Verify `position_snapshot` persistence with a non-empty account.
-3. Add real exchange writes and heartbeat ack handling to the execution worker.
+1. Verify `position_snapshot` persistence with a non-empty account.
+2. Add real exchange writes and heartbeat ack handling to the execution worker.
+3. Add Slack visibility for paper fills and daily paper PnL.
 
 ## Related Documents
 

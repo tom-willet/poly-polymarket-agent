@@ -23,9 +23,11 @@ Current implementation status:
 - `M2 Trade Core`: execution intent planning, lifecycle policy, heartbeat handling, and reconciliation modules implemented.
 - `M2 Trade Core`: dedicated execution worker implemented.
 - `M2 Trade Core`: deterministic paper broker implemented inside `execution-worker`.
+- `M2 Trade Core`: nonprod `execution-worker` ECS service is running continuously and seeding paper cash state.
 - `M2 Trade Core`: live exchange write path remains open.
 - `M3 Control Plane`: complete in repo and deployed to nonprod ECS.
 - `M3 Control Plane`: real nonprod Slack `status` / `risk` flow verified end to end through ECS.
+- `M3 Control Plane`: `status` now reports paper cash, exposure, and paper PnL from canonical nonprod state.
 - `M4 Paper Readiness`: decision-ledger persistence started.
 
 Checkpoint notes:
@@ -45,6 +47,7 @@ Checkpoint notes:
 - `openclaw-control` now persists `execution_intent` rows into current-state for the execution worker.
 - `execution-worker` now owns `health#execution-heartbeat` and evaluates deterministic `execution_action` updates from persisted intents.
 - `execution-worker` now simulates paper orders, fills, cash, and aggregated `position_snapshot` exposure without exchange writes.
+- `execution-worker` now runs continuously in nonprod ECS and seeds `paper_cash_snapshot` rows for the active paper wallet even before the first fill.
 - `openclaw-runtime` now provides a Slack Socket Mode adapter over the `openclaw-control` command core.
 - `openclaw-runtime` now ignores bot/subtype events and executes one command per non-empty Slack message line.
 - nonprod Slack traffic is now served by the ECS service `poly-orchestrator-nonprod-openclaw-runtime`, not a local laptop process.

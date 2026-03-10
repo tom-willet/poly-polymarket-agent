@@ -81,6 +81,7 @@ Checkpoint notes:
 - `trade-core` now has deterministic execution intent planning, lifecycle action evaluation, heartbeat health tracking, and user-channel reconciliation modules
 - `execution-worker` now owns `health#execution-heartbeat`, consumes `execution_intent` rows, and persists `execution_action` updates
 - `execution-worker` now includes a deterministic paper broker that simulates passive order placement, cancel escalation, cross fills, paper cash, and aggregated `position_snapshot` exposure
+- nonprod `execution-worker` is now deployed as a continuous ECS service and has verified `paper_cash_snapshot` initialization for the active paper wallet
 - `trade-core` now has a read-side bridge from DynamoDB current-state records into risk and execution planning inputs
 - `openclaw-control` now has an operator command core with persisted mode / pause / flatten state and ledger logging
 - `openclaw-control` now has a deterministic proposal generator for binary complement consistency checks
@@ -89,6 +90,7 @@ Checkpoint notes:
 - `openclaw-runtime` now provides a Slack Socket Mode adapter over the command core and is deployed as the nonprod ECS service `poly-orchestrator-nonprod-openclaw-runtime`
 - the Slack runtime now ignores bot/subtype events and executes one command per non-empty Slack message line
 - nonprod Slack/OpenAI secrets are populated and real Slack `status` / `risk` validation has completed through ECS
+- Slack `status` now reports paper cash, exposure, and paper PnL from canonical current-state
 
 ## Live GitHub Status
 
@@ -99,5 +101,5 @@ Reason the remaining issues stay open:
 
 - `#6`: authenticated order/account normalization is now verified for an empty live account, but user-channel coverage and position-bearing validation still remain
 - `#7`: authenticated persistence path is now verified for account snapshots, but position-bearing runs and the remaining persistence paths still remain
-- `#11`: dedicated execution worker now exists and supports deterministic paper execution, but the live exchange write path and Polymarket heartbeat ack loop do not
-- `#15`-`#18`: replay, scorecards, daily summaries, promotion testing, and runbook work are still ahead
+- `#11`: dedicated execution worker now runs continuously in nonprod ECS and supports deterministic paper execution, but the live exchange write path and Polymarket heartbeat ack loop do not
+- `#15`-`#18`: paper portfolio visibility has started, but replay, scorecards, daily summaries, promotion testing, and runbook work are still ahead

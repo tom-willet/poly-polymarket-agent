@@ -77,6 +77,16 @@ export interface PositionSnapshotPayload {
   snapshot_ts_utc: string;
 }
 
+export interface PaperCashSnapshotPayload {
+  wallet_id: string;
+  starting_cash_usd: number;
+  cash_balance_usd: number;
+  reserved_cash_usd: number;
+  available_cash_usd: number;
+  realized_pnl_usd: number;
+  updated_at_utc: string;
+}
+
 export interface ExecutionHeartbeatPayload {
   active: boolean;
   healthy: boolean;
