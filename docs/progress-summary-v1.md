@@ -106,10 +106,15 @@ Primary files:
 - real nonprod Slack `status` and `risk` commands verified end to end through ECS.
 - Slack runtime now ignores bot/subtype events and supports one command per non-empty message line.
 - `status` now includes paper cash, reserved cash, exposure, and paper PnL from canonical current-state.
+- Dedicated Slack paper views implemented: `paper`, `orders`, `fills`, and `pnl`.
 
 Supported operator commands:
 
 - `status`
+- `paper`
+- `orders`
+- `fills`
+- `pnl`
 - `why`
 - `risk`
 - `pause`
@@ -156,6 +161,7 @@ Primary files:
 - nonprod `execution-worker` ECS service deployed and stabilized
 - `paper_cash_snapshot` verified in nonprod DynamoDB for wallet `paper:0x7c5b485B9372A22bAc9A5B298e9B513A30E44A9a` with starting cash `$500.00`
 - `openclaw-control status` verified against canonical nonprod state with paper portfolio lines included
+- `openclaw-control` paper-view commands verified locally against canonical nonprod state
 - nonprod `openclaw-runtime` ECS service deployed and stabilized
 - real Slack DM validation completed against the nonprod app after removing legacy Lightsail responders
 - authenticated `account_state_snapshot` and `account_state_health` writes verified in nonprod DynamoDB for wallet `0x7c5b485B9372A22bAc9A5B298e9B513A30E44A9a`
@@ -182,6 +188,7 @@ More specifically:
 - `execution-worker` is now continuously running in nonprod ECS, and the canonical paper wallet is initialized even with zero fills.
 - `openclaw-control` command and decision logic are implemented, and the Slack runtime is now deployed and validated in nonprod ECS.
 - Slack `status` now surfaces paper bankroll state directly from current-state, so paper monitoring is operator-visible before any deposits.
+- Slack now has dedicated views for paper bankroll, open paper orders, recent paper fills, and PnL without touching the execution path.
 - The system can reason over current-state, produce proposals, allocate capital, run risk checks, plan execution, and persist the decision chain.
 - The system cannot yet place or manage real Polymarket orders end to end.
 

@@ -87,6 +87,45 @@ export interface PaperCashSnapshotPayload {
   updated_at_utc: string;
 }
 
+export interface PaperOrderPayload {
+  paper_order_id: string;
+  wallet_id: string;
+  order_plan_id: string;
+  decision_id: string;
+  sleeve_id: string;
+  market_complex_id: string;
+  market_id: string;
+  contract_id: string;
+  side: "buy" | "sell";
+  order_style: "passive" | "cross";
+  status: "open" | "filled" | "cancelled";
+  limit_price: number | null;
+  requested_size: number;
+  filled_size: number;
+  remaining_size: number;
+  avg_fill_price: number | null;
+  created_at_utc: string;
+  updated_at_utc: string;
+}
+
+export interface PaperFillPayload {
+  paper_fill_id: string;
+  paper_order_id: string;
+  wallet_id: string;
+  order_plan_id: string;
+  decision_id: string;
+  sleeve_id: string;
+  market_complex_id: string;
+  market_id: string;
+  contract_id: string;
+  side: "buy" | "sell";
+  liquidity: "passive" | "cross";
+  fill_price: number;
+  fill_size: number;
+  fill_notional_usd: number;
+  fill_ts_utc: string;
+}
+
 export interface ExecutionHeartbeatPayload {
   active: boolean;
   healthy: boolean;

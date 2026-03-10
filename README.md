@@ -28,6 +28,7 @@ Current implementation status:
 - `M3 Control Plane`: complete in repo and deployed to nonprod ECS.
 - `M3 Control Plane`: real nonprod Slack `status` / `risk` flow verified end to end through ECS.
 - `M3 Control Plane`: `status` now reports paper cash, exposure, and paper PnL from canonical nonprod state.
+- `M3 Control Plane`: Slack now supports dedicated paper views: `paper`, `orders`, `fills`, and `pnl`.
 - `M4 Paper Readiness`: decision-ledger persistence started.
 
 Checkpoint notes:
@@ -41,6 +42,7 @@ Checkpoint notes:
 - `trade-core` can now produce `allocator_decision`, `risk_decision`, `execution_intent`, and `execution_action` envelopes.
 - `trade-core` can now hydrate risk and execution inputs from the canonical current-state table.
 - `openclaw-control` can now persist operator mode / pause / flatten state and produce Slack-ready operator responses.
+- `openclaw-control` now exposes dedicated Slack views for paper bankroll, open paper orders, recent paper fills, and paper PnL.
 - `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for binary complement inconsistencies.
 - `openclaw-control` can now run an in-process decision cycle from proposal generation through allocator, risk, and execution intent planning.
 - `openclaw-control` now derives cycle exposure, performance, and heartbeat inputs from persisted state when available.

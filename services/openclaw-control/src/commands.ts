@@ -10,6 +10,8 @@ import type {
   DecisionLedgerStore,
   MarketHealthPayload,
   PaperCashSnapshotPayload,
+  PaperFillPayload,
+  PaperOrderPayload,
   PositionSnapshotPayload
 } from "./store.js";
 import { loadOperatorState } from "./store.js";
@@ -19,6 +21,14 @@ export interface CommandContext {
   defaultMode: "sim" | "paper" | "prod";
   currentState: CurrentStateStore;
   decisionLedger: DecisionLedgerStore;
+}
+
+interface PaperViewState {
+  walletId: string | null;
+  latestCash?: PaperCashSnapshotPayload;
+  positionRows: PositionSnapshotPayload[];
+  orderRows: PaperOrderPayload[];
+  fillRows: PaperFillPayload[];
 }
 
 function envelope(
@@ -103,7 +113,18 @@ function formatUsd(value: number): string {
   return `$${rounded.toFixed(2)}`;
 }
 
-async function paperPortfolioSummary(context: CommandContext): Promise<string[]> {
+function formatPrice(value: number | null): string {
+  if (value === null) {
+    return "mkt";
+  }
+  return value.toFixed(4);
+}
+
+function formatSize(value: number): string {
+  return value.toFixed(4);
+}
+
+async function loadPaperViewState(context: CommandContext): Promise<PaperViewState> {
   const cashRows = (await context.currentState.queryByPkPrefix("paper_cash#"))
     .filter((item) => item.sk === "latest")
     .sort((left, right) => right.ts_utc.localeCompare(left.ts_utc));
@@ -111,8 +132,39 @@ async function paperPortfolioSummary(context: CommandContext): Promise<string[]>
   const latestCash = cashRows[0]?.payload as PaperCashSnapshotPayload | undefined;
   const positionRows = (await context.currentState.queryByPkPrefix("position#paper:"))
     .filter((item) => item.sk === "snapshot")
-    .map((item) => item.payload as PositionSnapshotPayload)
-    .filter((item) => !latestCash || item.wallet_id === latestCash.wallet_id);
+    .map((item) => item.payload as PositionSnapshotPayload);
+  const orderRows = (await context.currentState.queryByPkPrefix("paper_order#"))
+    .filter((item) => item.sk === "latest")
+    .map((item) => item.payload as PaperOrderPayload);
+  const fillRows = (await context.currentState.queryByPkPrefix("paper_fill#"))
+    .filter((item) => item.sk === "latest")
+    .map((item) => item.payload as PaperFillPayload);
+
+  const walletId =
+    latestCash?.wallet_id ??
+    [...positionRows]
+      .sort((left, right) => right.snapshot_ts_utc.localeCompare(left.snapshot_ts_utc))
+      .at(0)?.wallet_id ??
+    [...orderRows]
+      .sort((left, right) => right.updated_at_utc.localeCompare(left.updated_at_utc))
+      .at(0)?.wallet_id ??
+    [...fillRows]
+      .sort((left, right) => right.fill_ts_utc.localeCompare(left.fill_ts_utc))
+      .at(0)?.wallet_id ??
+    null;
+
+  return {
+    walletId,
+    latestCash,
+    positionRows: walletId ? positionRows.filter((item) => item.wallet_id === walletId) : positionRows,
+    orderRows: walletId ? orderRows.filter((item) => item.wallet_id === walletId) : orderRows,
+    fillRows: walletId ? fillRows.filter((item) => item.wallet_id === walletId) : fillRows
+  };
+}
+
+async function paperPortfolioSummary(context: CommandContext, viewState?: PaperViewState): Promise<string[]> {
+  const state = viewState ?? (await loadPaperViewState(context));
+  const { latestCash, positionRows } = state;
 
   if (!latestCash && positionRows.length === 0) {
     return ["paper portfolio: not initialized"];
@@ -139,6 +191,64 @@ async function paperPortfolioSummary(context: CommandContext): Promise<string[]>
     `paper gross exposure: ${formatUsd(grossExposureUsd)}`,
     `paper pnl: realized=${formatUsd(realizedPnlUsd)}, unrealized=${formatUsd(unrealizedPnlUsd)}`
   ];
+}
+
+async function paperViewSummary(context: CommandContext): Promise<string[]> {
+  const state = await loadPaperViewState(context);
+  const openOrders = state.orderRows.filter((row) => row.status === "open");
+  return [
+    `paper wallet: ${state.walletId ?? "uninitialized"}`,
+    ...(await paperPortfolioSummary(context, state)),
+    `open paper orders: ${openOrders.length}`,
+    `paper fills recorded: ${state.fillRows.length}`
+  ];
+}
+
+async function paperOrdersSummary(context: CommandContext): Promise<string[]> {
+  const state = await loadPaperViewState(context);
+  const openOrders = state.orderRows
+    .filter((row) => row.status === "open")
+    .sort((left, right) => right.updated_at_utc.localeCompare(left.updated_at_utc));
+
+  if (openOrders.length === 0) {
+    return ["no open paper orders"];
+  }
+
+  return openOrders.slice(0, 5).map((order) => {
+    return `${order.market_complex_id} ${order.contract_id} ${order.side} ${order.order_style} remaining=${formatSize(order.remaining_size)} @ ${formatPrice(order.limit_price)}`;
+  });
+}
+
+async function paperFillsSummary(context: CommandContext): Promise<string[]> {
+  const state = await loadPaperViewState(context);
+  const fills = [...state.fillRows].sort((left, right) => right.fill_ts_utc.localeCompare(left.fill_ts_utc));
+
+  if (fills.length === 0) {
+    return ["no paper fills recorded"];
+  }
+
+  return fills.slice(0, 5).map((fill) => {
+    return `${fill.fill_ts_utc} ${fill.market_complex_id} ${fill.contract_id} ${fill.side} ${fill.liquidity} ${formatSize(fill.fill_size)} @ ${formatPrice(fill.fill_price)} notional=${formatUsd(fill.fill_notional_usd)}`;
+  });
+}
+
+async function paperPnlSummary(context: CommandContext): Promise<string[]> {
+  const state = await loadPaperViewState(context);
+
+  if (!state.latestCash && state.positionRows.length === 0) {
+    return ["paper portfolio: not initialized"];
+  }
+
+  const totals = await paperPortfolioSummary(context, state);
+  const positions = [...state.positionRows].sort((left, right) => right.gross_exposure_usd - left.gross_exposure_usd);
+  const positionLines =
+    positions.length === 0
+      ? ["no paper positions open"]
+      : positions.slice(0, 5).map((position) => {
+          return `${position.market_complex_id} gross=${formatUsd(position.gross_exposure_usd)} net=${formatUsd(position.net_exposure_usd)} realized=${formatUsd(position.realized_pnl_usd)} unrealized=${formatUsd(position.unrealized_pnl_usd)}`;
+        });
+
+  return [...totals, ...positionLines];
 }
 
 async function sleevesSummary(context: CommandContext): Promise<string[]> {
@@ -260,6 +370,42 @@ export async function handleOperatorCommand(
       command: command.command,
       summary: "Operator status snapshot",
       details
+    });
+  }
+
+  if (command.command === "paper") {
+    return envelope(context.env, {
+      command_id: command.command_id,
+      command: command.command,
+      summary: "Current paper portfolio",
+      details: await paperViewSummary(context)
+    });
+  }
+
+  if (command.command === "orders") {
+    return envelope(context.env, {
+      command_id: command.command_id,
+      command: command.command,
+      summary: "Open paper orders",
+      details: await paperOrdersSummary(context)
+    });
+  }
+
+  if (command.command === "fills") {
+    return envelope(context.env, {
+      command_id: command.command_id,
+      command: command.command,
+      summary: "Recent paper fills",
+      details: await paperFillsSummary(context)
+    });
+  }
+
+  if (command.command === "pnl") {
+    return envelope(context.env, {
+      command_id: command.command_id,
+      command: command.command,
+      summary: "Paper PnL snapshot",
+      details: await paperPnlSummary(context)
     });
   }
 

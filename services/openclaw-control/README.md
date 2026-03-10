@@ -11,6 +11,10 @@ Initial `M3` control-plane implementation for operator commands and persisted co
 - Run the first integrated decision cycle from proposal generation into `trade-core`.
 - Build Slack-ready response payloads for:
   - `status`
+  - `paper`
+  - `orders`
+  - `fills`
+  - `pnl`
   - `why`
   - `risk`
   - `pause`

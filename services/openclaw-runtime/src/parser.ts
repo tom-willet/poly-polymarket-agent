@@ -39,6 +39,10 @@ export function parseSlackCommand(text: string): ParsedSlackCommand {
   }
 
   if (
+    first === "paper" ||
+    first === "orders" ||
+    first === "fills" ||
+    first === "pnl" ||
     first === "why" ||
     first === "risk" ||
     first === "pause" ||

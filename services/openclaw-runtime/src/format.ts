@@ -51,6 +51,10 @@ export function renderHelp(): string {
     "Supported commands:",
     bullet([
       "status",
+      "paper",
+      "orders",
+      "fills",
+      "pnl",
       "why",
       "risk",
       "pause",

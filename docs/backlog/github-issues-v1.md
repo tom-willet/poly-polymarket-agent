@@ -91,6 +91,7 @@ Checkpoint notes:
 - the Slack runtime now ignores bot/subtype events and executes one command per non-empty Slack message line
 - nonprod Slack/OpenAI secrets are populated and real Slack `status` / `risk` validation has completed through ECS
 - Slack `status` now reports paper cash, exposure, and paper PnL from canonical current-state
+- Slack now supports dedicated paper operator views: `paper`, `orders`, `fills`, and `pnl`
 
 ## Live GitHub Status
 
