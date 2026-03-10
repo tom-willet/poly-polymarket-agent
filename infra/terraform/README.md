@@ -54,3 +54,6 @@ terraform plan
 - `execution-worker` now has scoped access to current-state and decision-ledger in both environments.
 - nonprod now includes dedicated ECS services for both `openclaw-runtime` and `execution-worker`.
 - nonprod now also defines an ECS service for `openclaw-runtime` with default-VPC networking and Secrets Manager injection for Slack Socket Mode tokens.
+- nonprod now also defines EventBridge Scheduler jobs for `openclaw-runtime`:
+  - a decision-cycle task every 5 minutes
+  - a daily paper-scorecard task at 8:00 AM America/Denver

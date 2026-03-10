@@ -39,6 +39,30 @@ variable "openclaw_runtime_image_tag" {
   default     = "latest"
 }
 
+variable "openclaw_runtime_report_user_ids" {
+  description = "Slack user IDs that should receive scheduled paper scorecards."
+  type        = list(string)
+  default     = []
+}
+
+variable "decision_cycle_schedule_expression" {
+  description = "EventBridge Scheduler expression for nonprod decision-cycle runs."
+  type        = string
+  default     = "rate(5 minutes)"
+}
+
+variable "daily_scorecard_schedule_expression" {
+  description = "EventBridge Scheduler expression for daily paper scorecards."
+  type        = string
+  default     = "cron(0 8 * * ? *)"
+}
+
+variable "scheduler_timezone" {
+  description = "Timezone used for calendar-based nonprod schedules."
+  type        = string
+  default     = "America/Denver"
+}
+
 variable "execution_worker_cpu" {
   description = "CPU units for the nonprod execution-worker Fargate task."
   type        = number

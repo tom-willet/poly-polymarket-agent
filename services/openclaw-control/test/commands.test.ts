@@ -48,6 +48,12 @@ class InMemoryDecisionLedgerStore implements DecisionLedgerStore {
   ): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
     return this.items.filter((item) => item.pk === pk).slice(-limit).reverse();
   }
+
+  async scanByPkPrefix(
+    prefix: string
+  ): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
+    return this.items.filter((item) => item.pk.startsWith(prefix));
+  }
 }
 
 function baseContext() {
@@ -191,6 +197,112 @@ async function seedPaperState(context: ReturnType<typeof baseContext>): Promise<
   });
 }
 
+async function seedScorecardLedger(context: ReturnType<typeof baseContext>): Promise<void> {
+  const now = new Date();
+  const withinWindow = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+  const older = new Date(now.getTime() - 30 * 60 * 60 * 1000).toISOString();
+
+  await context.decisionLedger.put("decision_cycle#cycle-1", withinWindow, {
+    event_type: "decision_cycle",
+    ts_utc: withinWindow,
+    payload: {
+      proposal_count: 2,
+      allocator_decision_count: 1,
+      risk_decision_count: 1,
+      execution_intent_count: 1,
+      notes: [],
+      proposals: [],
+      allocator_decisions: [],
+      risk_decisions: [],
+      execution_intents: []
+    }
+  });
+  await context.decisionLedger.put("paper_order#order-open", withinWindow, {
+    event_type: "paper_order",
+    ts_utc: withinWindow,
+    payload: {
+      paper_order_id: "order-open",
+      wallet_id: "paper:0xabc",
+      order_plan_id: "plan-1",
+      decision_id: "decision-1",
+      sleeve_id: "cross_market_core",
+      market_complex_id: "event:1",
+      market_id: "market-1",
+      contract_id: "ct_yes",
+      side: "buy",
+      order_style: "passive",
+      status: "open",
+      limit_price: 0.41,
+      requested_size: 10,
+      filled_size: 0,
+      remaining_size: 10,
+      avg_fill_price: null,
+      created_at_utc: withinWindow,
+      updated_at_utc: withinWindow
+    }
+  });
+  await context.decisionLedger.put("paper_order#order-cancelled", withinWindow, {
+    event_type: "paper_order",
+    ts_utc: withinWindow,
+    payload: {
+      paper_order_id: "order-cancelled",
+      wallet_id: "paper:0xabc",
+      order_plan_id: "plan-2",
+      decision_id: "decision-2",
+      sleeve_id: "cross_market_core",
+      market_complex_id: "event:2",
+      market_id: "market-2",
+      contract_id: "ct_no",
+      side: "sell",
+      order_style: "passive",
+      status: "cancelled",
+      limit_price: 0.62,
+      requested_size: 8,
+      filled_size: 0,
+      remaining_size: 0,
+      avg_fill_price: null,
+      created_at_utc: withinWindow,
+      updated_at_utc: withinWindow
+    }
+  });
+  await context.decisionLedger.put("paper_fill#fill-1", withinWindow, {
+    event_type: "paper_fill",
+    ts_utc: withinWindow,
+    payload: {
+      paper_fill_id: "fill-1",
+      paper_order_id: "order-open",
+      wallet_id: "paper:0xabc",
+      order_plan_id: "plan-1",
+      decision_id: "decision-1",
+      sleeve_id: "cross_market_core",
+      market_complex_id: "event:1",
+      market_id: "market-1",
+      contract_id: "ct_yes",
+      side: "buy",
+      liquidity: "cross",
+      fill_price: 0.41,
+      fill_size: 10,
+      fill_notional_usd: 4.1,
+      fill_ts_utc: withinWindow
+    }
+  });
+  await context.decisionLedger.put("decision_cycle#old-cycle", older, {
+    event_type: "decision_cycle",
+    ts_utc: older,
+    payload: {
+      proposal_count: 99,
+      allocator_decision_count: 99,
+      risk_decision_count: 99,
+      execution_intent_count: 99,
+      notes: [],
+      proposals: [],
+      allocator_decisions: [],
+      risk_decisions: [],
+      execution_intents: []
+    }
+  });
+}
+
 test("status reports operator and state health summary", async () => {
   const response = await handleOperatorCommand(
     {
@@ -307,6 +419,32 @@ test("pnl reports total and per-position paper pnl", async () => {
     response.payload.details.join("\n"),
     /event:1 gross=\$40\.00 net=\$40\.00 realized=\$5\.00 unrealized=\$2\.00/
   );
+});
+
+test("scorecard reports rolling daily paper activity", async () => {
+  const context = baseContext();
+  await seedPaperState(context);
+  await seedScorecardLedger(context);
+
+  const response = await handleOperatorCommand(
+    {
+      command_id: "cmd-scorecard",
+      user_id: "u-1",
+      channel_id: "c-1",
+      command: "scorecard"
+    },
+    context
+  );
+
+  assert.equal(response.payload.summary, "Daily paper scorecard");
+  assert.match(response.payload.details.join("\n"), /window: last 24h/);
+  assert.match(response.payload.details.join("\n"), /decision cycles: 1/);
+  assert.match(response.payload.details.join("\n"), /proposals generated: 2/);
+  assert.match(response.payload.details.join("\n"), /execution intents: 1/);
+  assert.match(response.payload.details.join("\n"), /paper orders opened: 2/);
+  assert.match(response.payload.details.join("\n"), /paper orders cancelled: 1/);
+  assert.match(response.payload.details.join("\n"), /paper fills: 1/);
+  assert.match(response.payload.details.join("\n"), /paper filled notional: \$4\.10/);
 });
 
 test("pause persists operator state and logs to ledger", async () => {

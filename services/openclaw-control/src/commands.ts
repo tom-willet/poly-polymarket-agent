@@ -1,4 +1,5 @@
 import type {
+  DecisionCyclePayload,
   EventEnvelope,
   OperatorCommandPayload,
   OperatorNotificationPayload,
@@ -29,6 +30,16 @@ interface PaperViewState {
   positionRows: PositionSnapshotPayload[];
   orderRows: PaperOrderPayload[];
   fillRows: PaperFillPayload[];
+}
+
+interface DailyScorecardTotals {
+  cycleCount: number;
+  proposalCount: number;
+  intentCount: number;
+  fillCount: number;
+  fillNotionalUsd: number;
+  openedOrderCount: number;
+  cancelledOrderCount: number;
 }
 
 function envelope(
@@ -122,6 +133,14 @@ function formatPrice(value: number | null): string {
 
 function formatSize(value: number): string {
   return value.toFixed(4);
+}
+
+function cutoffIso(hours: number): string {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+}
+
+function uniqueCount<T>(items: T[], key: (item: T) => string): number {
+  return new Set(items.map((item) => key(item))).size;
 }
 
 async function loadPaperViewState(context: CommandContext): Promise<PaperViewState> {
@@ -249,6 +268,46 @@ async function paperPnlSummary(context: CommandContext): Promise<string[]> {
         });
 
   return [...totals, ...positionLines];
+}
+
+async function dailyPaperScorecard(context: CommandContext): Promise<string[]> {
+  const state = await loadPaperViewState(context);
+  const cutoff = cutoffIso(24);
+  const cycleRows = (await context.decisionLedger.scanByPkPrefix("decision_cycle#"))
+    .filter((row) => row.event_type === "decision_cycle" && row.ts_utc >= cutoff)
+    .map((row) => row.payload as DecisionCyclePayload);
+  const orderRows = (await context.decisionLedger.scanByPkPrefix("paper_order#"))
+    .map((row) => row.payload as PaperOrderPayload)
+    .filter((row) => !state.walletId || row.wallet_id === state.walletId);
+  const fillRows = (await context.decisionLedger.scanByPkPrefix("paper_fill#"))
+    .map((row) => row.payload as PaperFillPayload)
+    .filter((row) => (!state.walletId || row.wallet_id === state.walletId) && row.fill_ts_utc >= cutoff);
+
+  const openedOrders = orderRows.filter((row) => row.created_at_utc >= cutoff);
+  const cancelledOrders = orderRows.filter((row) => row.status === "cancelled" && row.updated_at_utc >= cutoff);
+  const totals: DailyScorecardTotals = {
+    cycleCount: cycleRows.length,
+    proposalCount: cycleRows.reduce((sum, row) => sum + row.proposal_count, 0),
+    intentCount: cycleRows.reduce((sum, row) => sum + row.execution_intent_count, 0),
+    fillCount: uniqueCount(fillRows, (row) => row.paper_fill_id),
+    fillNotionalUsd: fillRows.reduce((sum, row) => sum + row.fill_notional_usd, 0),
+    openedOrderCount: uniqueCount(openedOrders, (row) => row.paper_order_id),
+    cancelledOrderCount: uniqueCount(cancelledOrders, (row) => row.paper_order_id)
+  };
+  const pnlLines = await paperPnlSummary(context);
+
+  return [
+    `window: last 24h`,
+    `paper wallet: ${state.walletId ?? "uninitialized"}`,
+    `decision cycles: ${totals.cycleCount}`,
+    `proposals generated: ${totals.proposalCount}`,
+    `execution intents: ${totals.intentCount}`,
+    `paper orders opened: ${totals.openedOrderCount}`,
+    `paper orders cancelled: ${totals.cancelledOrderCount}`,
+    `paper fills: ${totals.fillCount}`,
+    `paper filled notional: ${formatUsd(totals.fillNotionalUsd)}`,
+    ...pnlLines
+  ];
 }
 
 async function sleevesSummary(context: CommandContext): Promise<string[]> {
@@ -406,6 +465,15 @@ export async function handleOperatorCommand(
       command: command.command,
       summary: "Paper PnL snapshot",
       details: await paperPnlSummary(context)
+    });
+  }
+
+  if (command.command === "scorecard") {
+    return envelope(context.env, {
+      command_id: command.command_id,
+      command: command.command,
+      summary: "Daily paper scorecard",
+      details: await dailyPaperScorecard(context)
     });
   }
 

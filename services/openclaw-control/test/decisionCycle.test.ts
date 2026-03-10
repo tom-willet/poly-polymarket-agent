@@ -51,6 +51,12 @@ class InMemoryDecisionLedgerStore implements DecisionLedgerStore {
   ): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
     return this.items.filter((item) => item.pk === pk).slice(-limit).reverse();
   }
+
+  async scanByPkPrefix(
+    prefix: string
+  ): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
+    return this.items.filter((item) => item.pk.startsWith(prefix));
+  }
 }
 
 function currentState(): InMemoryCurrentStateStore {

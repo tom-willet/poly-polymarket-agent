@@ -3,6 +3,7 @@ export interface SlackRuntimeConfig {
   slackBotToken: string;
   slackAppToken: string;
   slackAllowedUserIds: string[];
+  slackReportUserIds: string[];
   currentStateTableName: string;
   decisionLedgerTableName: string;
 }
@@ -36,6 +37,10 @@ export function loadSlackRuntimeConfig(): SlackRuntimeConfig {
     slackBotToken,
     slackAppToken,
     slackAllowedUserIds: (process.env.SLACK_ALLOWED_USER_IDS ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+    slackReportUserIds: (process.env.SLACK_REPORT_USER_IDS ?? process.env.SLACK_ALLOWED_USER_IDS ?? "")
       .split(",")
       .map((value) => value.trim())
       .filter(Boolean),

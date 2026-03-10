@@ -15,12 +15,16 @@
     "prebuild": "pnpm --filter @poly/openclaw-control build && pnpm --filter @poly/trade-core build",
     "build": "tsc -p tsconfig.json",
     "socket": "tsx src/cli.ts socket",
+    "cycle": "tsx src/cli.ts cycle",
+    "scorecard": "tsx src/cli.ts scorecard",
     "pretest": "pnpm --filter @poly/openclaw-control build && pnpm --filter @poly/trade-core build",
     "test": "node --import tsx --test ./test/*.test.ts"
   },
   "dependencies": {
     "@poly/openclaw-control": "workspace:*",
-    "@slack/bolt": "^4.4.0"
+    "@poly/trade-core": "workspace:*",
+    "@slack/bolt": "^4.4.0",
+    "@slack/web-api": "^7.12.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.14",

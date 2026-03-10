@@ -15,6 +15,7 @@ Initial `M3` control-plane implementation for operator commands and persisted co
   - `orders`
   - `fills`
   - `pnl`
+  - `scorecard`
   - `why`
   - `risk`
   - `pause`
@@ -52,4 +53,5 @@ pnpm --filter @poly/openclaw-control cycle
 - `cycle` now derives performance from `position_snapshot` rows when available, otherwise falls back to zero.
 - `cycle` now derives execution heartbeat from current-state health when available, with a non-prod fallback policy.
 - `cycle` now persists `execution_intent` rows into current-state for the execution worker to consume.
+- `scorecard` summarizes the last 24 hours of decision-ledger activity plus canonical paper state.
 - Trade execution authority remains outside the control plane.

@@ -46,6 +46,10 @@ class InMemoryDecisionLedgerStore implements DecisionLedgerStore {
   async query(): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
     return [];
   }
+
+  async scanByPkPrefix(): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
+    return [];
+  }
 }
 
 function config(): ExecutionWorkerConfig {

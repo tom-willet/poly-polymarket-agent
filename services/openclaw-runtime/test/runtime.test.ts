@@ -48,6 +48,12 @@ class InMemoryDecisionLedgerStore implements DecisionLedgerStore {
   ): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
     return this.items.filter((item) => item.pk === pk).slice(-limit).reverse();
   }
+
+  async scanByPkPrefix(
+    prefix: string
+  ): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
+    return this.items.filter((item) => item.pk.startsWith(prefix));
+  }
 }
 
 function baseState(): InMemoryCurrentStateStore {
@@ -120,6 +126,7 @@ test("handleSlackText routes status into operator command core", async () => {
     },
     {
       currentState: baseState(),
+      currentStateReader: baseState(),
       decisionLedger: new InMemoryDecisionLedgerStore()
     }
   );
@@ -145,6 +152,7 @@ test("handleSlackText rejects disallowed users", async () => {
     },
     {
       currentState: baseState(),
+      currentStateReader: baseState(),
       decisionLedger: new InMemoryDecisionLedgerStore()
     }
   );
@@ -169,6 +177,7 @@ test("handleSlackText executes one command per non-empty line", async () => {
     },
     {
       currentState: baseState(),
+      currentStateReader: baseState(),
       decisionLedger: new InMemoryDecisionLedgerStore()
     }
   );

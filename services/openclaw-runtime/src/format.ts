@@ -55,6 +55,7 @@ export function renderHelp(): string {
       "orders",
       "fills",
       "pnl",
+      "scorecard",
       "why",
       "risk",
       "pause",

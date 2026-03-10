@@ -12,7 +12,20 @@ export interface OperatorCommandPayload {
   command_id: string;
   user_id: string;
   channel_id: string;
-  command: "status" | "paper" | "orders" | "fills" | "pnl" | "why" | "risk" | "pause" | "resume" | "flatten" | "mode" | "sleeves";
+  command:
+    | "status"
+    | "paper"
+    | "orders"
+    | "fills"
+    | "pnl"
+    | "scorecard"
+    | "why"
+    | "risk"
+    | "pause"
+    | "resume"
+    | "flatten"
+    | "mode"
+    | "sleeves";
   args?: string[];
 }
 

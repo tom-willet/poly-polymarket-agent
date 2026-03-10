@@ -14,7 +14,8 @@ data "aws_iam_role" "ecs_task_execution" {
 }
 
 locals {
-  openclaw_runtime_service_name = "${local.project_name}-nonprod-openclaw-runtime"
+  openclaw_runtime_service_name    = "${local.project_name}-nonprod-openclaw-runtime"
+  openclaw_runtime_report_user_ids = length(var.openclaw_runtime_report_user_ids) > 0 ? var.openclaw_runtime_report_user_ids : var.openclaw_runtime_allowed_user_ids
 }
 
 resource "aws_security_group" "openclaw_runtime" {
@@ -79,6 +80,7 @@ resource "aws_ecs_task_definition" "openclaw_runtime" {
         { name = "STATE_CURRENT_TABLE", value = module.platform_foundation.dynamodb_table_names["current_state"] },
         { name = "DECISION_LEDGER_TABLE", value = module.platform_foundation.dynamodb_table_names["decision_ledger"] },
         { name = "SLACK_ALLOWED_USER_IDS", value = join(",", var.openclaw_runtime_allowed_user_ids) },
+        { name = "SLACK_REPORT_USER_IDS", value = join(",", local.openclaw_runtime_report_user_ids) },
         { name = "NODE_OPTIONS", value = "--enable-source-maps" }
       ]
       secrets = [

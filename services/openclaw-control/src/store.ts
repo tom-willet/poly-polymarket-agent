@@ -144,6 +144,9 @@ export interface CurrentStateStore {
 export interface DecisionLedgerStore {
   put(pk: string, sk: string, item: Record<string, unknown>): Promise<void>;
   query(pk: string, limit?: number): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>>;
+  scanByPkPrefix(
+    prefix: string
+  ): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>>;
 }
 
 export class DynamoDbCurrentStateStore implements CurrentStateStore {
@@ -224,6 +227,24 @@ export class DynamoDbDecisionLedgerStore implements DecisionLedgerStore {
         },
         ScanIndexForward: false,
         Limit: limit
+      })
+    );
+
+    return (
+      (response.Items as Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }> | undefined) ?? []
+    );
+  }
+
+  async scanByPkPrefix(
+    prefix: string
+  ): Promise<Array<{ pk: string; sk: string; payload: unknown; ts_utc: string; event_type: string }>> {
+    const response = await this.client.send(
+      new ScanCommand({
+        TableName: this.tableName,
+        FilterExpression: "begins_with(pk, :prefix)",
+        ExpressionAttributeValues: {
+          ":prefix": prefix
+        }
       })
     );
 

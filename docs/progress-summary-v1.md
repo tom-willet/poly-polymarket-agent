@@ -1,6 +1,6 @@
 # Progress Summary v1
 
-Date: March 9, 2026
+Date: March 10, 2026
 
 This document summarizes what has been built so far, where the project currently stops, and what remains before paper readiness and later production enablement.
 
@@ -106,7 +106,8 @@ Primary files:
 - real nonprod Slack `status` and `risk` commands verified end to end through ECS.
 - Slack runtime now ignores bot/subtype events and supports one command per non-empty message line.
 - `status` now includes paper cash, reserved cash, exposure, and paper PnL from canonical current-state.
-- Dedicated Slack paper views implemented: `paper`, `orders`, `fills`, and `pnl`.
+- Dedicated Slack paper views implemented: `paper`, `orders`, `fills`, `pnl`, and `scorecard`.
+- `openclaw-runtime` now supports non-interactive `cycle` and `scorecard` task entrypoints for scheduled ECS execution.
 
 Supported operator commands:
 
@@ -115,6 +116,7 @@ Supported operator commands:
 - `orders`
 - `fills`
 - `pnl`
+- `scorecard`
 - `why`
 - `risk`
 - `pause`
@@ -136,7 +138,9 @@ Primary files:
 ### M4 Paper Readiness
 
 - Decision-ledger persistence has started.
-- Replay harness, scorecards, daily summaries, promotion tests, and runbook work are not implemented yet.
+- Initial daily scorecard generation is implemented from the decision ledger and canonical paper-state rows.
+- nonprod AWS Scheduler now runs the decision cycle every 5 minutes and a daily paper scorecard task at 8:00 AM America/Denver.
+- Replay harness, promotion tests, richer sleeve or market-complex scorecards, and release runbook work are not implemented yet.
 
 ## What Has Been Verified
 
@@ -166,6 +170,9 @@ Primary files:
 - real Slack DM validation completed against the nonprod app after removing legacy Lightsail responders
 - authenticated `account_state_snapshot` and `account_state_health` writes verified in nonprod DynamoDB for wallet `0x7c5b485B9372A22bAc9A5B298e9B513A30E44A9a`
 - execution-worker paper lifecycle verified locally through passive order placement, cancel escalation, cross fills, paper cash updates, and aggregated `position_snapshot` creation
+- nonprod AWS Scheduler decision-cycle and daily-scorecard schedules are enabled
+- one-off ECS `cycle` task completed successfully against the deployed runtime image
+- one-off ECS `scorecard --post` task completed successfully with exit code `0` and emitted the expected paper summary
 
 ## What Was Cleaned Up
 
@@ -188,7 +195,8 @@ More specifically:
 - `execution-worker` is now continuously running in nonprod ECS, and the canonical paper wallet is initialized even with zero fills.
 - `openclaw-control` command and decision logic are implemented, and the Slack runtime is now deployed and validated in nonprod ECS.
 - Slack `status` now surfaces paper bankroll state directly from current-state, so paper monitoring is operator-visible before any deposits.
-- Slack now has dedicated views for paper bankroll, open paper orders, recent paper fills, and PnL without touching the execution path.
+- Slack now has dedicated views for paper bankroll, open paper orders, recent paper fills, PnL, and a 24-hour paper scorecard without touching the execution path.
+- nonprod now has automated paper-cycle and daily-scorecard scheduler jobs, but live opportunities have not yet produced meaningful paper orders or fills.
 - The system can reason over current-state, produce proposals, allocate capital, run risk checks, plan execution, and persist the decision chain.
 - The system cannot yet place or manage real Polymarket orders end to end.
 
@@ -223,14 +231,14 @@ Open:
 ### Immediate Remaining Work
 
 1. Verify live `position_snapshot` writes in nonprod DynamoDB with an account that actually holds positions.
-2. Add exchange write authority to the execution worker.
-3. Add real Polymarket heartbeat ack handling to the execution worker.
-4. Add Slack views for paper fills, open paper orders, and daily paper PnL.
+2. Expand daily scorecards beyond top-level paper totals into sleeve-level and market-complex-level rollups.
+3. Build replay ingestion so archived market-state and ledger events can be rerun deterministically.
+4. Add promotion checks for `sim` -> `paper` and `paper` -> `prod`.
 
 ### Paper-Readiness Work
 
 1. Build replay ingestion and deterministic replay runs.
-2. Add strategy scorecards and daily summaries.
+2. Expand strategy scorecards and daily summaries beyond the initial operator-facing scorecard.
 3. Add promotion checks for `sim` -> `paper` -> `prod`.
 4. Write the release runbook and beta enablement gate.
 
@@ -248,8 +256,9 @@ Open:
 ## Recommended Next Sequence
 
 1. Verify `position_snapshot` persistence with a non-empty account.
-2. Add real exchange writes and heartbeat ack handling to the execution worker.
-3. Add Slack visibility for paper fills and daily paper PnL.
+2. Expand the daily scorecard into sleeve and market-complex rollups.
+3. Build the replay harness and promotion checks.
+4. Add real exchange writes and heartbeat ack handling only after the paper-readiness gates are in place.
 
 ## Related Documents
 

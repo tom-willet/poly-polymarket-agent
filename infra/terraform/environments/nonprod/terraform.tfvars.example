@@ -1,3 +1,4 @@
 aws_profile = "mullet-dev"
 openclaw_runtime_allowed_user_ids = ["U0123ABCDEF"]
+openclaw_runtime_report_user_ids  = ["U0123ABCDEF"]
 execution_worker_paper_starting_cash_usd = 500

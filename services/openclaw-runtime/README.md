@@ -10,12 +10,16 @@ Initial Slack runtime adapter for the `openclaw-control` command core.
 - Return plain-text Slack responses.
 - Ignore bot/subtype events so the runtime does not answer its own messages.
 - Execute one command per non-empty line in a Slack message.
-- Support dedicated paper operator views: `paper`, `orders`, `fills`, and `pnl`.
+- Support dedicated paper operator views: `paper`, `orders`, `fills`, `pnl`, and `scorecard`.
+- Expose non-interactive `cycle` and `scorecard` entrypoints for scheduled ECS tasks.
 
 ## Commands
 
 ```bash
 pnpm --filter @poly/openclaw-runtime socket
+pnpm --filter @poly/openclaw-runtime cycle
+pnpm --filter @poly/openclaw-runtime scorecard
+pnpm --filter @poly/openclaw-runtime scorecard -- --post
 pnpm --filter @poly/openclaw-runtime test
 ```
 
@@ -30,4 +34,5 @@ AWS_PROFILE=mullet-dev ./scripts/deploy/deploy_openclaw_runtime_nonprod.sh
 - This is a runtime adapter, not a second control plane.
 - Trade authority remains outside Slack.
 - Allowed-user enforcement is driven by `SLACK_ALLOWED_USER_IDS`.
+- Daily scorecard posts are driven by `SLACK_REPORT_USER_IDS`.
 - The active nonprod runtime is the ECS service `poly-orchestrator-nonprod-openclaw-runtime`.

@@ -1,4 +1,5 @@
 import { App } from "@slack/bolt";
+import { WebClient } from "@slack/web-api";
 import {
   DynamoDbCurrentStateStore,
   DynamoDbDecisionLedgerStore,
@@ -9,13 +10,23 @@ import {
   type DecisionLedgerStore
 } from "@poly/openclaw-control";
 import { loadControlConfig } from "@poly/openclaw-control";
+import { DynamoDbCurrentStateReader, type CurrentStateReader } from "@poly/trade-core";
 import type { SlackRuntimeConfig } from "./config.js";
 import { renderDecisionCycle, renderHelp, renderOperatorNotification, renderProposals } from "./format.js";
 import { parseSlackCommand } from "./parser.js";
 
 export interface RuntimeDependencies {
   currentState: CurrentStateStore;
+  currentStateReader: CurrentStateReader;
   decisionLedger: DecisionLedgerStore;
+}
+
+export function createRuntimeDependencies(config: SlackRuntimeConfig): RuntimeDependencies {
+  return {
+    currentState: new DynamoDbCurrentStateStore(config.currentStateTableName),
+    currentStateReader: new DynamoDbCurrentStateReader(config.currentStateTableName),
+    decisionLedger: new DynamoDbDecisionLedgerStore(config.decisionLedgerTableName)
+  };
 }
 
 function isAllowed(userId: string | undefined, allowedUserIds: string[]): boolean {
@@ -70,7 +81,7 @@ async function renderSlackCommand(
       env: config.env,
       config: controlConfig,
       currentState: deps.currentState,
-      currentStateReader: deps.currentState,
+      currentStateReader: deps.currentStateReader,
       decisionLedger: deps.decisionLedger
     });
     return renderDecisionCycle(cycle);
@@ -128,10 +139,7 @@ export async function handleSlackText(
 
 export function createSlackApp(
   config: SlackRuntimeConfig,
-  deps = {
-    currentState: new DynamoDbCurrentStateStore(config.currentStateTableName),
-    decisionLedger: new DynamoDbDecisionLedgerStore(config.decisionLedgerTableName)
-  }
+  deps = createRuntimeDependencies(config)
 ): App {
   const app = new App({
     token: config.slackBotToken,
@@ -193,4 +201,56 @@ export function createSlackApp(
 export async function startSlackRuntime(config: SlackRuntimeConfig): Promise<void> {
   const app = createSlackApp(config);
   await app.start();
+}
+
+export async function runRuntimeDecisionCycle(
+  config: SlackRuntimeConfig,
+  deps = createRuntimeDependencies(config)
+): Promise<string> {
+  const controlConfig = loadControlConfig();
+  const cycle = await runDecisionCycle({
+    env: config.env,
+    config: controlConfig,
+    currentState: deps.currentState,
+    currentStateReader: deps.currentStateReader,
+    decisionLedger: deps.decisionLedger
+  });
+  return renderDecisionCycle(cycle);
+}
+
+export async function runRuntimeOperatorCommand(
+  config: SlackRuntimeConfig,
+  command: "scorecard",
+  deps = createRuntimeDependencies(config)
+): Promise<string> {
+  const controlConfig = loadControlConfig();
+  const response = await handleOperatorCommand(
+    {
+      command_id: crypto.randomUUID(),
+      user_id: "system",
+      channel_id: "system",
+      command
+    },
+    {
+      env: config.env,
+      defaultMode: controlConfig.defaultMode,
+      currentState: deps.currentState,
+      decisionLedger: deps.decisionLedger
+    }
+  );
+  return renderOperatorNotification(response);
+}
+
+export async function postSlackMessage(config: SlackRuntimeConfig, text: string): Promise<void> {
+  if (config.slackReportUserIds.length === 0) {
+    throw new Error("SLACK_REPORT_USER_IDS is required for scheduled Slack posts");
+  }
+
+  const client = new WebClient(config.slackBotToken);
+  for (const recipient of config.slackReportUserIds) {
+    await client.chat.postMessage({
+      channel: recipient,
+      text
+    });
+  }
 }

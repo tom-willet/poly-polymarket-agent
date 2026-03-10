@@ -28,8 +28,8 @@ Current implementation status:
 - `M3 Control Plane`: complete in repo and deployed to nonprod ECS.
 - `M3 Control Plane`: real nonprod Slack `status` / `risk` flow verified end to end through ECS.
 - `M3 Control Plane`: `status` now reports paper cash, exposure, and paper PnL from canonical nonprod state.
-- `M3 Control Plane`: Slack now supports dedicated paper views: `paper`, `orders`, `fills`, and `pnl`.
-- `M4 Paper Readiness`: decision-ledger persistence started.
+- `M3 Control Plane`: Slack now supports dedicated paper views: `paper`, `orders`, `fills`, `pnl`, and `scorecard`.
+- `M4 Paper Readiness`: decision-ledger persistence, daily scorecard generation, and scheduled nonprod paper-cycle tasks are implemented.
 
 Checkpoint notes:
 - Terraform foundation exists for separate `nonprod` and `prod` environments.
@@ -52,7 +52,9 @@ Checkpoint notes:
 - `execution-worker` now runs continuously in nonprod ECS and seeds `paper_cash_snapshot` rows for the active paper wallet even before the first fill.
 - `openclaw-runtime` now provides a Slack Socket Mode adapter over the `openclaw-control` command core.
 - `openclaw-runtime` now ignores bot/subtype events and executes one command per non-empty Slack message line.
+- `openclaw-runtime` now supports non-interactive `cycle` and `scorecard` task entrypoints for scheduled ECS runs.
 - nonprod Slack traffic is now served by the ECS service `poly-orchestrator-nonprod-openclaw-runtime`, not a local laptop process.
+- nonprod EventBridge Scheduler now runs the paper decision cycle every 5 minutes and a daily paper scorecard task at 8:00 AM America/Denver.
 - Live trading remains disabled pending Polymarket US beta enablement and explicit production approval.
 
 Specs:
