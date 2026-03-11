@@ -59,3 +59,6 @@ terraform plan
   - a decision-cycle task every 5 minutes
   - a daily paper-scorecard task at 8:00 AM America/Denver
 - the companion image-push helper for the new nonprod `market-state` service lives at `scripts/deploy/deploy_market_state_nonprod.sh`.
+- nonprod can optionally send a daily AWS account cost email by setting `daily_cost_report_email`; this provisions a small Lambda, SNS email subscription, and an EventBridge Scheduler job that defaults to 7:00 AM America/Denver.
+- the same observation email path also provisions a daily runtime-health digest at 7:15 AM America/Denver covering ECS service state, current-state health rows, and the latest decision-cycle summary.
+- the email report is account-level because project-level cost allocation tags are not configured yet.

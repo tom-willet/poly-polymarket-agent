@@ -57,6 +57,24 @@ variable "daily_scorecard_schedule_expression" {
   default     = "cron(0 8 * * ? *)"
 }
 
+variable "daily_cost_report_email" {
+  description = "Email address that should receive the daily nonprod AWS cost report. Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
+variable "daily_cost_report_schedule_expression" {
+  description = "EventBridge Scheduler expression for daily AWS cost report emails."
+  type        = string
+  default     = "cron(0 7 * * ? *)"
+}
+
+variable "daily_health_report_schedule_expression" {
+  description = "EventBridge Scheduler expression for daily AWS health report emails."
+  type        = string
+  default     = "cron(15 7 * * ? *)"
+}
+
 variable "scheduler_timezone" {
   description = "Timezone used for calendar-based nonprod schedules."
   type        = string

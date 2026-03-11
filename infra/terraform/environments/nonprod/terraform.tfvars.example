@@ -1,6 +1,11 @@
 aws_profile = "mullet-dev"
 openclaw_runtime_allowed_user_ids = ["U0123ABCDEF"]
 openclaw_runtime_report_user_ids  = ["U0123ABCDEF"]
+daily_cost_report_email = "ops@example.com"
+# Optional override for the default 7:00 AM America/Denver cost email.
+# daily_cost_report_schedule_expression = "cron(0 7 * * ? *)"
+# Optional override for the default 7:15 AM America/Denver health email.
+# daily_health_report_schedule_expression = "cron(15 7 * * ? *)"
 execution_worker_paper_starting_cash_usd = 500
 market_state_asset_limit                = 200
 market_state_loop_duration_seconds      = 60
