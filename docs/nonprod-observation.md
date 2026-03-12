@@ -69,7 +69,6 @@ Watch for:
 ## Current Gaps Worth Watching
 
 - `position_snapshot` still needs verification with a non-empty account.
-- The account health row currently reports `collateral allowance missing`.
 - Cost visibility is account-level, not yet project-tag-level.
 
 ## Recommended Next Observation Upgrade

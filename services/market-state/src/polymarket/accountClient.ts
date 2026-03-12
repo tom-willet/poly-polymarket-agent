@@ -19,6 +19,11 @@ import type { AccountStateSnapshotPayload } from "../accountSnapshot.js";
 import type { AppConfig } from "../config.js";
 import type { DataApiPosition } from "./accountTypes.js";
 
+type BalanceAllowanceResponseWithFallback = Omit<BalanceAllowanceResponse, "allowance"> & {
+  allowance?: number | string | null;
+  allowances?: Record<string, number | string | null | undefined> | null;
+};
+
 function parseNumber(value: number | string | null | undefined): number | null {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -84,12 +89,35 @@ function toSignatureType(signatureType: number): SignatureType {
   throw new Error(`Unsupported POLY_SIGNATURE_TYPE "${signatureType}"`);
 }
 
-function normalizeCollateral(balance: BalanceAllowanceResponse): AccountBalanceRecord {
+function normalizeAllowance(balance: BalanceAllowanceResponseWithFallback): number | null {
+  const directAllowance = parseNumber(balance.allowance);
+  if (directAllowance !== null) {
+    return directAllowance;
+  }
+
+  if (!balance.allowances) {
+    return null;
+  }
+
+  const allowanceValues = Object.values(balance.allowances)
+    .map((value) => parseNumber(value))
+    .filter((value): value is number => value !== null);
+
+  if (allowanceValues.length === 0) {
+    return null;
+  }
+
+  // The current CLOB response reports per-spender approvals. Keep a single
+  // scalar for downstream consumers by storing the highest observed approval.
+  return Math.max(...allowanceValues);
+}
+
+export function normalizeCollateral(balance: BalanceAllowanceResponseWithFallback): AccountBalanceRecord {
   return {
     asset_type: "COLLATERAL",
     token_id: null,
     balance: parseNumber(balance.balance),
-    allowance: parseNumber(balance.allowance)
+    allowance: normalizeAllowance(balance)
   };
 }
 
