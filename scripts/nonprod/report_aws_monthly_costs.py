@@ -7,7 +7,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 
 def first_day_next_month(value: date) -> date:
@@ -19,6 +19,7 @@ def first_day_next_month(value: date) -> date:
 def aws_json(args: list[str], profile: str | None, region: str) -> dict[str, object]:
     env = os.environ.copy()
     env["AWS_REGION"] = region
+    env["AWS_DEFAULT_REGION"] = region
     if profile:
         env["AWS_PROFILE"] = profile
 
@@ -45,7 +46,8 @@ def main() -> int:
     parser.add_argument("--top-services", type=int, default=5)
     args = parser.parse_args()
 
-    today = date.today()
+    # Cost Explorer day boundaries are UTC, not local time.
+    today = datetime.now(timezone.utc).date()
     month_start = today.replace(day=1)
     tomorrow = today + timedelta(days=1)
     yesterday_start = today - timedelta(days=1)
