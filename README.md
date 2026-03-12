@@ -18,7 +18,7 @@ Current implementation status:
 - `M1 Market State`: nonprod DynamoDB/S3 persistence verified for the public market-data path.
 - `M1 Market State`: authenticated nonprod account-state persistence verified with real Polymarket credentials.
 - `M1 Market State`: continuous `loop` mode, Docker packaging, and nonprod ECS deployment assets are now implemented in repo.
-- `M1 Market State`: verified account currently has zero orders and zero positions, so position-bearing `position_snapshot` coverage still remains.
+- `M1 Market State`: the authenticated nonprod wallet still has zero live positions, but nonprod paper execution has now produced verified non-empty `position_snapshot` rows end to end.
 - `M2 Trade Core`: allocator complete.
 - `M2 Trade Core`: deterministic risk kernel complete.
 - `M2 Trade Core`: execution intent planning, lifecycle policy, heartbeat handling, and reconciliation modules implemented.
@@ -48,13 +48,14 @@ Checkpoint notes:
 - `openclaw-control` can now persist operator mode / pause / flatten state and produce Slack-ready operator responses.
 - `openclaw-control` now exposes dedicated Slack views for paper bankroll, open paper orders, recent paper fills, and paper PnL.
 - `openclaw-control` now exposes a `markets` view over tracked canonical snapshots and a richer `why` diagnostic summary.
-- `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for binary complement inconsistencies.
+- `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for event-level mutually exclusive YES baskets.
 - `openclaw-control` can now run an in-process decision cycle from proposal generation through allocator, risk, and execution intent planning.
 - `openclaw-control` now derives cycle exposure, performance, and heartbeat inputs from persisted state when available.
 - `openclaw-control` now persists `execution_intent` rows into current-state for the execution worker.
 - `execution-worker` now owns `health#execution-heartbeat` and evaluates deterministic `execution_action` updates from persisted intents.
 - `execution-worker` now simulates paper orders, fills, cash, and aggregated `position_snapshot` exposure without exchange writes.
 - `execution-worker` now runs continuously in nonprod ECS and seeds `paper_cash_snapshot` rows for the active paper wallet even before the first fill.
+- nonprod paper execution is now verified end to end through filled paper orders, paper fills, paper cash updates, and a non-empty `position_snapshot`.
 - `openclaw-runtime` now provides a Slack Socket Mode adapter over the `openclaw-control` command core.
 - `openclaw-runtime` now ignores bot/subtype events and executes one command per non-empty Slack message line.
 - `openclaw-runtime` now supports non-interactive `cycle` and `scorecard` task entrypoints for scheduled ECS runs.

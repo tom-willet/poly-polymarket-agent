@@ -106,16 +106,16 @@ function currentState(): InMemoryCurrentStateStore {
         }
       ],
       [
-        "market#ct-yes|snapshot",
+        "market#ct-a-yes|snapshot",
         {
           ts_utc: "2026-03-07T04:00:00Z",
           event_type: "market_snapshot",
           payload: {
-            market_id: "mkt-1",
+            market_id: "mkt-a",
             event_id: "event-1",
-            slug: "test-market",
-            question: "Test market?",
-            contract_id: "ct-yes",
+            slug: "team-a",
+            question: "Will Team A win?",
+            contract_id: "ct-a-yes",
             outcome: "Yes",
             market_complex_id: "event:1",
             status: "active",
@@ -131,22 +131,72 @@ function currentState(): InMemoryCurrentStateStore {
         }
       ],
       [
-        "market#ct-no|snapshot",
+        "market#ct-a-no|snapshot",
         {
           ts_utc: "2026-03-07T04:00:00Z",
           event_type: "market_snapshot",
           payload: {
-            market_id: "mkt-1",
+            market_id: "mkt-a",
             event_id: "event-1",
-            slug: "test-market",
-            question: "Test market?",
-            contract_id: "ct-no",
+            slug: "team-a",
+            question: "Will Team A win?",
+            contract_id: "ct-a-no",
             outcome: "No",
             market_complex_id: "event:1",
             status: "active",
             mid_price: 0.48,
             best_bid: 0.47,
             best_ask: 0.48,
+            spread_cents: 1,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 24,
+            book_ts_utc: "2026-03-07T04:00:00Z"
+          }
+        }
+      ],
+      [
+        "market#ct-b-yes|snapshot",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "mkt-b",
+            event_id: "event-1",
+            slug: "team-b",
+            question: "Will Team B win?",
+            contract_id: "ct-b-yes",
+            outcome: "Yes",
+            market_complex_id: "event:1",
+            status: "active",
+            mid_price: 0.48,
+            best_bid: 0.47,
+            best_ask: 0.48,
+            spread_cents: 1,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 24,
+            book_ts_utc: "2026-03-07T04:00:00Z"
+          }
+        }
+      ],
+      [
+        "market#ct-b-no|snapshot",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "mkt-b",
+            event_id: "event-1",
+            slug: "team-b",
+            question: "Will Team B win?",
+            contract_id: "ct-b-no",
+            outcome: "No",
+            market_complex_id: "event:1",
+            status: "active",
+            mid_price: 0.52,
+            best_bid: 0.51,
+            best_ask: 0.52,
             spread_cents: 1,
             top_bid_size: 100,
             top_ask_size: 100,

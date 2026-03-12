@@ -68,7 +68,7 @@ Watch for:
 
 ## Current Gaps Worth Watching
 
-- `position_snapshot` still needs verification with a non-empty account.
+- The first non-empty paper `position_snapshot` is now live; the next thing to watch is whether paper fills, exposure, and PnL continue to reconcile cleanly over time.
 - Cost visibility is account-level, not yet project-tag-level.
 
 ## Recommended Next Observation Upgrade
@@ -76,5 +76,5 @@ Watch for:
 The next most useful additions after the live cost and health emails are:
 
 - project-level AWS cost allocation tags so spend is not mixed with unrelated account usage
-- `position_snapshot` verification with a non-empty account
+- a richer daily digest that includes new paper fills, exposure changes, and paper PnL deltas
 - a richer daily digest that includes restart deltas and scorecard-style execution summaries

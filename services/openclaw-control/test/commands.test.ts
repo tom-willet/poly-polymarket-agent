@@ -364,11 +364,13 @@ async function seedWhyLedger(context: ReturnType<typeof baseContext>): Promise<v
       execution_intent_count: 0,
       notes: [
         "no eligible cross-market consistency proposals found",
-        "tracked markets=1",
-        "binary active candidates=1",
+        "tracked markets=2",
+        "binary active markets=2",
+        "candidate event baskets=1",
+        "skipped single-market complexes=0",
         "accepted proposals=0",
         "rejected on edge=1",
-        "BitBoy convicted? best edge 0.5c below 3c threshold"
+        "event 1 best event-basket edge 0.5c below 3c threshold"
       ],
       proposals: [],
       allocator_decisions: [],
@@ -573,7 +575,7 @@ test("why reports recent decision diagnostics and rejection reasons", async () =
   assert.equal(response.payload.summary, "Recent decision diagnostics");
   assert.match(response.payload.details.join("\n"), /latest cycle: 2026-03-10T01:00:00Z proposals=0/);
   assert.match(response.payload.details.join("\n"), /rejected on edge=1/);
-  assert.match(response.payload.details.join("\n"), /BitBoy convicted\? best edge 0\.5c below 3c threshold/);
+  assert.match(response.payload.details.join("\n"), /event 1 best event-basket edge 0\.5c below 3c threshold/);
   assert.match(response.payload.details.join("\n"), /recent allocator rejects:/);
   assert.match(response.payload.details.join("\n"), /proposal below bankroll minimum/);
   assert.match(response.payload.details.join("\n"), /recent risk rejects:/);

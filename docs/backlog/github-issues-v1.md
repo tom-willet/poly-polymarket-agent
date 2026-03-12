@@ -76,16 +76,17 @@ Checkpoint notes:
 - `market-state` now has a continuous `loop` entrypoint plus committed Docker and nonprod ECS deployment assets
 - `execution-worker` now persists `health#execution-heartbeat` into current-state and this path has been verified in nonprod DynamoDB
 - authenticated nonprod `account_state_snapshot` / `account_state_health` persistence is now verified with real Polymarket credentials
-- `position_snapshot` publication remains unverified in a live non-empty account because the verified wallet currently has zero positions
+- the authenticated live wallet still has zero positions, but nonprod paper execution now has verified non-empty `position_snapshot` publication end to end
 - `trade-core` now has a deterministic allocator with proposal validation, ranking, and bankroll-aware sizing
 - `trade-core` now has a deterministic risk kernel with halt, reject, approve, and resize outcomes
 - `trade-core` now has deterministic execution intent planning, lifecycle action evaluation, heartbeat health tracking, and user-channel reconciliation modules
 - `execution-worker` now owns `health#execution-heartbeat`, consumes `execution_intent` rows, and persists `execution_action` updates
 - `execution-worker` now includes a deterministic paper broker that simulates passive order placement, cancel escalation, cross fills, paper cash, and aggregated `position_snapshot` exposure
 - nonprod `execution-worker` is now deployed as a continuous ECS service and has verified `paper_cash_snapshot` initialization for the active paper wallet
+- nonprod paper execution has now produced verified filled paper orders, paper fills, paper cash updates, and a non-empty `position_snapshot`
 - `trade-core` now has a read-side bridge from DynamoDB current-state records into risk and execution planning inputs
 - `openclaw-control` now has an operator command core with persisted mode / pause / flatten state and ledger logging
-- `openclaw-control` now has a deterministic proposal generator for binary complement consistency checks
+- `openclaw-control` now has a deterministic proposal generator for event-level mutually exclusive consistency baskets
 - `openclaw-control` now has an integrated decision-cycle command that runs proposal generation through allocator, risk, and execution intent planning, then persists `execution_intent` rows for downstream execution
 - `openclaw-control` now derives cycle exposure and performance from persisted sources when available, with controlled fallbacks where live position data is not yet present
 - `openclaw-control` now has a deterministic `scorecard` operator view built from the last 24 hours of ledger activity plus canonical paper state
@@ -105,8 +106,8 @@ Checkpoint notes:
 
 Reason the remaining issues stay open:
 
-- `#6`: authenticated order/account normalization is now verified for an empty live account, and continuous service deployment assets now exist, but user-channel coverage and position-bearing validation still remain
-- `#7`: authenticated persistence path is now verified for account snapshots, but continuous nonprod service rollout verification, position-bearing runs, and the remaining persistence paths still remain
+- `#6`: authenticated order/account normalization is now verified for an empty live account, and continuous service deployment assets now exist, but user-channel coverage and live authenticated position-bearing validation still remain
+- `#7`: authenticated persistence path is now verified for account snapshots, but live authenticated position-bearing runs and the remaining persistence paths still remain
 - `#11`: dedicated execution worker now runs continuously in nonprod ECS and supports deterministic paper execution, but the live exchange write path and Polymarket heartbeat ack loop do not
 - `#15`: paper-readiness infrastructure now includes scheduled paper cycles and a daily operator scorecard, but replay, promotion tests, and runbook work remain
 - `#16`: decision ledger and initial daily scorecard are in place, but sleeve-level and market-complex scorecards still remain

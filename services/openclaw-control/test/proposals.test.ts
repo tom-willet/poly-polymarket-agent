@@ -42,16 +42,66 @@ function baseEntries(): Array<[string, Record<string, unknown>]> {
       }
     ],
     [
-      "market#ct-yes|snapshot",
+      "market#ct-a-yes|snapshot",
       {
         ts_utc: "2026-03-07T04:00:00Z",
         event_type: "market_snapshot",
         payload: {
-          market_id: "mkt-1",
+          market_id: "mkt-a",
           event_id: "event-1",
-          slug: "test-market",
-          question: "Test market?",
-          contract_id: "ct-yes",
+          slug: "team-a",
+          question: "Will Team A win?",
+          contract_id: "ct-a-yes",
+          outcome: "Yes",
+          market_complex_id: "event:1",
+          status: "active",
+          mid_price: 0.5,
+          best_bid: 0.49,
+          best_ask: 0.5,
+          spread_cents: 1,
+          top_bid_size: 100,
+          top_ask_size: 100,
+          time_to_resolution_hours: 24,
+          book_ts_utc: "2026-03-07T04:00:00Z"
+        }
+      }
+    ],
+    [
+      "market#ct-a-no|snapshot",
+      {
+        ts_utc: "2026-03-07T04:00:00Z",
+        event_type: "market_snapshot",
+        payload: {
+          market_id: "mkt-a",
+          event_id: "event-1",
+          slug: "team-a",
+          question: "Will Team A win?",
+          contract_id: "ct-a-no",
+          outcome: "No",
+          market_complex_id: "event:1",
+          status: "active",
+          mid_price: 0.5,
+          best_bid: 0.49,
+          best_ask: 0.5,
+          spread_cents: 1,
+          top_bid_size: 100,
+          top_ask_size: 100,
+          time_to_resolution_hours: 24,
+          book_ts_utc: "2026-03-07T04:00:00Z"
+        }
+      }
+    ],
+    [
+      "market#ct-b-yes|snapshot",
+      {
+        ts_utc: "2026-03-07T04:00:00Z",
+        event_type: "market_snapshot",
+        payload: {
+          market_id: "mkt-b",
+          event_id: "event-1",
+          slug: "team-b",
+          question: "Will Team B win?",
+          contract_id: "ct-b-yes",
           outcome: "Yes",
           market_complex_id: "event:1",
           status: "active",
@@ -67,22 +117,22 @@ function baseEntries(): Array<[string, Record<string, unknown>]> {
       }
     ],
     [
-      "market#ct-no|snapshot",
+      "market#ct-b-no|snapshot",
       {
         ts_utc: "2026-03-07T04:00:00Z",
         event_type: "market_snapshot",
         payload: {
-          market_id: "mkt-1",
+          market_id: "mkt-b",
           event_id: "event-1",
-          slug: "test-market",
-          question: "Test market?",
-          contract_id: "ct-no",
+          slug: "team-b",
+          question: "Will Team B win?",
+          contract_id: "ct-b-no",
           outcome: "No",
           market_complex_id: "event:1",
           status: "active",
-          mid_price: 0.48,
-          best_bid: 0.47,
-          best_ask: 0.48,
+          mid_price: 0.51,
+          best_bid: 0.5,
+          best_ask: 0.51,
           spread_cents: 1,
           top_bid_size: 100,
           top_ask_size: 100,
@@ -110,7 +160,7 @@ const baseConfig = {
   proposalSizingHintUsd: 40
 };
 
-test("proposal generator emits a buy-both complement proposal when asks sum below par after costs", async () => {
+test("proposal generator emits a buy-all-yes event basket when related asks sum below par after costs", async () => {
   const proposals = await generateCrossMarketConsistencyProposals({
     env: "paper",
     config: baseConfig,
@@ -126,16 +176,16 @@ test("proposal generator emits a buy-both complement proposal when asks sum belo
           }
         ],
         [
-          "market#ct-yes|snapshot",
+          "market#ct-a-yes|snapshot",
           {
             ts_utc: "2026-03-07T04:00:00Z",
             event_type: "market_snapshot",
             payload: {
-              market_id: "mkt-1",
+              market_id: "mkt-a",
               event_id: "event-1",
-              slug: "test-market",
-              question: "Test market?",
-              contract_id: "ct-yes",
+              slug: "team-a",
+              question: "Will Team A win?",
+              contract_id: "ct-a-yes",
               outcome: "Yes",
               market_complex_id: "event:1",
               status: "active",
@@ -151,16 +201,16 @@ test("proposal generator emits a buy-both complement proposal when asks sum belo
           }
         ],
         [
-          "market#ct-no|snapshot",
+          "market#ct-a-no|snapshot",
           {
             ts_utc: "2026-03-07T04:00:00Z",
             event_type: "market_snapshot",
             payload: {
-              market_id: "mkt-1",
+              market_id: "mkt-a",
               event_id: "event-1",
-              slug: "test-market",
-              question: "Test market?",
-              contract_id: "ct-no",
+              slug: "team-a",
+              question: "Will Team A win?",
+              contract_id: "ct-a-no",
               outcome: "No",
               market_complex_id: "event:1",
               status: "active",
@@ -174,14 +224,66 @@ test("proposal generator emits a buy-both complement proposal when asks sum belo
               book_ts_utc: "2026-03-07T04:00:00Z"
             }
           }
+        ],
+        [
+          "market#ct-b-yes|snapshot",
+          {
+            ts_utc: "2026-03-07T04:00:00Z",
+            event_type: "market_snapshot",
+            payload: {
+              market_id: "mkt-b",
+              event_id: "event-1",
+              slug: "team-b",
+              question: "Will Team B win?",
+              contract_id: "ct-b-yes",
+              outcome: "Yes",
+              market_complex_id: "event:1",
+              status: "active",
+              mid_price: 0.48,
+              best_bid: 0.47,
+              best_ask: 0.48,
+              spread_cents: 1,
+              top_bid_size: 100,
+              top_ask_size: 100,
+              time_to_resolution_hours: 24,
+              book_ts_utc: "2026-03-07T04:00:00Z"
+            }
+          }
+        ],
+        [
+          "market#ct-b-no|snapshot",
+          {
+            ts_utc: "2026-03-07T04:00:00Z",
+            event_type: "market_snapshot",
+            payload: {
+              market_id: "mkt-b",
+              event_id: "event-1",
+              slug: "team-b",
+              question: "Will Team B win?",
+              contract_id: "ct-b-no",
+              outcome: "No",
+              market_complex_id: "event:1",
+              status: "active",
+              mid_price: 0.52,
+              best_bid: 0.51,
+              best_ask: 0.52,
+              spread_cents: 1,
+              top_bid_size: 100,
+              top_ask_size: 100,
+              time_to_resolution_hours: 24,
+              book_ts_utc: "2026-03-07T04:00:00Z"
+            }
+          }
         ]
       ])
   });
 
   assert.equal(proposals.length, 1);
+  assert.equal(proposals[0]?.payload.contracts.length, 2);
   assert.equal(proposals[0]?.payload.contracts[0]?.side, "buy");
   assert.equal(proposals[0]?.payload.contracts[1]?.side, "buy");
-  assert.match(proposals[0]?.payload.thesis ?? "", /asks sum below par/);
+  assert.match(proposals[0]?.payload.thesis ?? "", /YES asks across related markets sum below par/);
+  assert.match(proposals[0]?.payload.notes ?? "", /event_legs=2/);
 });
 
 test("proposal generator emits no proposal when operator is paused", async () => {

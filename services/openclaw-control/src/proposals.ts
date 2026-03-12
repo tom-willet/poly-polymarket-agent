@@ -9,12 +9,11 @@ interface ProposalContext {
   currentState: CurrentStateStore;
 }
 
-interface BinaryPairCandidate {
-  marketId: string;
+interface EventBasketCandidate {
   marketComplexId: string;
-  question: string;
-  slug: string;
-  legs: [MarketSnapshotPayload, MarketSnapshotPayload];
+  marketCount: number;
+  label: string;
+  legs: MarketSnapshotPayload[];
 }
 
 type CandidateRejectionReason = "spread" | "resolution" | "edge";
@@ -27,7 +26,7 @@ interface CandidateEvaluationAccepted {
 interface CandidateEvaluationRejected {
   status: "rejected";
   reason: CandidateRejectionReason;
-  candidate: BinaryPairCandidate;
+  candidate: EventBasketCandidate;
   detail: string;
 }
 
@@ -63,12 +62,16 @@ function confidenceFromEdge(edgeAfterCosts: number, totalSpreadCents: number): n
   return round(Math.max(0.5, Math.min(0.95, raw)), 3);
 }
 
-function buildInvalidators(candidate: BinaryPairCandidate, direction: "buy_both" | "sell_both"): string[] {
-  const actionLabel = direction === "buy_both" ? "combined ask" : "combined bid";
+function buildInvalidators(
+  candidate: EventBasketCandidate,
+  direction: "buy_all_yes" | "sell_all_yes"
+): string[] {
+  const actionLabel = direction === "buy_all_yes" ? "combined YES ask basket" : "combined YES bid basket";
   return [
     `${actionLabel} edge closes below threshold`,
-    "either leg spread exceeds v1 proposal threshold",
-    `market ${candidate.marketId} leaves active status`,
+    "any basket leg spread exceeds v1 proposal threshold",
+    `event basket ${candidate.marketComplexId} leaves active status`,
+    "basket composition changes or quoted outcomes stop covering the same event complex",
     "order-book depth degrades before allocation"
   ];
 }
@@ -85,18 +88,30 @@ function groupSnapshotsByMarket(markets: MarketSnapshotPayload[]): Map<string, M
   return byMarketId;
 }
 
-function buildBinaryPairs(markets: MarketSnapshotPayload[]): {
+function basketLabel(marketComplexId: string, legs: MarketSnapshotPayload[]): string {
+  const sample = legs[0];
+  if (!sample) {
+    return marketComplexId;
+  }
+
+  return sample.event_id ? `event ${sample.event_id}` : sample.slug || sample.question || marketComplexId;
+}
+
+function buildEventBaskets(markets: MarketSnapshotPayload[]): {
   totalMarkets: number;
   skippedNonBinary: number;
   skippedInactive: number;
-  candidates: BinaryPairCandidate[];
+  binaryActiveMarkets: number;
+  skippedSingleMarketComplexes: number;
+  candidates: EventBasketCandidate[];
 } {
   const byMarketId = groupSnapshotsByMarket(markets);
-  const candidates: BinaryPairCandidate[] = [];
+  const byMarketComplexId = new Map<string, MarketSnapshotPayload[]>();
   let skippedNonBinary = 0;
   let skippedInactive = 0;
+  let binaryActiveMarkets = 0;
 
-  for (const [marketId, snapshots] of byMarketId.entries()) {
+  for (const snapshots of byMarketId.values()) {
     if (snapshots.length !== 2) {
       skippedNonBinary += 1;
       continue;
@@ -106,17 +121,33 @@ function buildBinaryPairs(markets: MarketSnapshotPayload[]): {
       continue;
     }
 
-    const [left, right] = snapshots;
-    if (!left || !right) {
+    const yesSnapshot = snapshots.find((snapshot) => snapshot.outcome.toLowerCase() === "yes");
+    const noSnapshot = snapshots.find((snapshot) => snapshot.outcome.toLowerCase() === "no");
+    if (!yesSnapshot || !noSnapshot) {
+      skippedNonBinary += 1;
+      continue;
+    }
+
+    binaryActiveMarkets += 1;
+    byMarketComplexId.set(yesSnapshot.market_complex_id, [
+      ...(byMarketComplexId.get(yesSnapshot.market_complex_id) ?? []),
+      yesSnapshot
+    ]);
+  }
+
+  const candidates: EventBasketCandidate[] = [];
+  let skippedSingleMarketComplexes = 0;
+  for (const [marketComplexId, legs] of byMarketComplexId.entries()) {
+    if (legs.length < 2) {
+      skippedSingleMarketComplexes += 1;
       continue;
     }
 
     candidates.push({
-      marketId,
-      marketComplexId: left.market_complex_id,
-      question: left.question,
-      slug: left.slug,
-      legs: [left, right]
+      marketComplexId,
+      marketCount: legs.length,
+      label: basketLabel(marketComplexId, legs),
+      legs: [...legs].sort((left, right) => left.market_id.localeCompare(right.market_id))
     });
   }
 
@@ -124,72 +155,72 @@ function buildBinaryPairs(markets: MarketSnapshotPayload[]): {
     totalMarkets: byMarketId.size,
     skippedNonBinary,
     skippedInactive,
+    binaryActiveMarkets,
+    skippedSingleMarketComplexes,
     candidates
   };
 }
 
-function evaluateCandidate(candidate: BinaryPairCandidate, context: ProposalContext): CandidateEvaluation {
-  const [left, right] = candidate.legs;
-  const spreads = [left.spread_cents, right.spread_cents];
+function evaluateCandidate(candidate: EventBasketCandidate, context: ProposalContext): CandidateEvaluation {
+  const spreads = candidate.legs.map((leg) => leg.spread_cents);
   if (spreads.some((spread) => spread === null || spread > context.config.proposalMaxSpreadCents)) {
     return {
       status: "rejected",
       reason: "spread",
       candidate,
-      detail: `${candidate.question || candidate.marketId} spread above ${context.config.proposalMaxSpreadCents}c threshold`
+      detail: `${candidate.label} basket spread above ${context.config.proposalMaxSpreadCents}c threshold`
     };
   }
 
   if (
-    left.time_to_resolution_hours === null ||
-    right.time_to_resolution_hours === null ||
-    left.time_to_resolution_hours < 4 ||
-    right.time_to_resolution_hours < 4
+    candidate.legs.some(
+      (leg) => leg.time_to_resolution_hours === null || leg.time_to_resolution_hours < 4
+    )
   ) {
     return {
       status: "rejected",
       reason: "resolution",
       candidate,
-      detail: `${candidate.question || candidate.marketId} time to resolution below 4h minimum`
+      detail: `${candidate.label} has at least one leg below the 4h resolution minimum`
     };
   }
 
-  const buyBothPrice = left.best_ask !== null && right.best_ask !== null ? left.best_ask + right.best_ask : null;
-  const sellBothPrice = left.best_bid !== null && right.best_bid !== null ? left.best_bid + right.best_bid : null;
-  const totalCosts = totalCostsDecimal(context.config, 2);
+  const buyAllYesPrice = candidate.legs.every((leg) => leg.best_ask !== null)
+    ? candidate.legs.reduce((sum, leg) => sum + (leg.best_ask ?? 0), 0)
+    : null;
+  const sellAllYesPrice = candidate.legs.every((leg) => leg.best_bid !== null)
+    ? candidate.legs.reduce((sum, leg) => sum + (leg.best_bid ?? 0), 0)
+    : null;
+  const totalCosts = totalCostsDecimal(context.config, candidate.legs.length);
 
-  const buyBothEdge = buyBothPrice === null ? Number.NEGATIVE_INFINITY : 1 - buyBothPrice - totalCosts;
-  const sellBothEdge = sellBothPrice === null ? Number.NEGATIVE_INFINITY : sellBothPrice - 1 - totalCosts;
+  const buyAllYesEdge =
+    buyAllYesPrice === null ? Number.NEGATIVE_INFINITY : 1 - buyAllYesPrice - totalCosts;
+  const sellAllYesEdge =
+    sellAllYesPrice === null ? Number.NEGATIVE_INFINITY : sellAllYesPrice - 1 - totalCosts;
 
-  const bestDirection = buyBothEdge >= sellBothEdge ? "buy_both" : "sell_both";
-  const bestEdge = Math.max(buyBothEdge, sellBothEdge);
+  const bestDirection = buyAllYesEdge >= sellAllYesEdge ? "buy_all_yes" : "sell_all_yes";
+  const bestEdge = Math.max(buyAllYesEdge, sellAllYesEdge);
   const edgeCents = bestEdge * 100;
   if (edgeCents < context.config.proposalMinEdgeCents) {
     return {
       status: "rejected",
       reason: "edge",
       candidate,
-      detail: `${candidate.question || candidate.marketId} best edge ${round(edgeCents, 3)}c below ${context.config.proposalMinEdgeCents}c threshold`
+      detail: `${candidate.label} best event-basket edge ${round(edgeCents, 3)}c below ${context.config.proposalMinEdgeCents}c threshold`
     };
   }
 
-  const contracts =
-    bestDirection === "buy_both"
-      ? [
-          { market_id: left.market_id, contract_id: left.contract_id, side: "buy" as const },
-          { market_id: right.market_id, contract_id: right.contract_id, side: "buy" as const }
-        ]
-      : [
-          { market_id: left.market_id, contract_id: left.contract_id, side: "sell" as const },
-          { market_id: right.market_id, contract_id: right.contract_id, side: "sell" as const }
-        ];
+  const contracts = candidate.legs.map((leg) => ({
+    market_id: leg.market_id,
+    contract_id: leg.contract_id,
+    side: bestDirection === "buy_all_yes" ? ("buy" as const) : ("sell" as const)
+  }));
 
-  const totalSpreadCents = (left.spread_cents ?? 0) + (right.spread_cents ?? 0);
-  const combinedPrice = bestDirection === "buy_both" ? buyBothPrice : sellBothPrice;
+  const totalSpreadCents = candidate.legs.reduce((sum, leg) => sum + (leg.spread_cents ?? 0), 0);
+  const combinedPrice = bestDirection === "buy_all_yes" ? buyAllYesPrice : sellAllYesPrice;
   const holdingHours = Math.min(
     context.config.proposalDefaultHoldingHours,
-    left.time_to_resolution_hours,
-    right.time_to_resolution_hours
+    ...candidate.legs.map((leg) => leg.time_to_resolution_hours ?? context.config.proposalDefaultHoldingHours)
   );
 
   return {
@@ -199,31 +230,33 @@ function evaluateCandidate(candidate: BinaryPairCandidate, context: ProposalCont
       sleeve_id: "cross_market_core",
       market_complex_id: candidate.marketComplexId,
       thesis:
-        bestDirection === "buy_both"
-          ? "Binary complement asks sum below par after modeled costs."
-          : "Binary complement bids sum above par after modeled costs.",
+        bestDirection === "buy_all_yes"
+          ? "Mutually exclusive YES asks across related markets sum below par after modeled costs."
+          : "Mutually exclusive YES bids across related markets sum above par after modeled costs.",
       contracts,
       expected_edge_after_costs: round(bestEdge),
       confidence: confidenceFromEdge(bestEdge, totalSpreadCents),
       max_holding_hours: round(holdingHours, 3),
       invalidators: buildInvalidators(candidate, bestDirection),
       sizing_hint_usd: context.config.proposalSizingHintUsd,
-      notes: `combined_${bestDirection === "buy_both" ? "ask" : "bid"}=${round(combinedPrice ?? 0, 4)} costs=${round(totalCosts, 4)}`
+      notes: `event_legs=${candidate.marketCount} combined_yes_${bestDirection === "buy_all_yes" ? "ask" : "bid"}=${round(combinedPrice ?? 0, 4)} costs=${round(totalCosts, 4)}`
     }
   };
 }
 
 function diagnosticsFromEvaluations(
-  grouped: ReturnType<typeof buildBinaryPairs>,
+  grouped: ReturnType<typeof buildEventBaskets>,
   evaluations: CandidateEvaluation[],
   operatorState: { paused: boolean; flatten_requested: boolean },
   marketDataStale: boolean
 ): string[] {
   const lines = [
     `tracked markets=${grouped.totalMarkets}`,
-    `binary active candidates=${grouped.candidates.length}`,
+    `binary active markets=${grouped.binaryActiveMarkets}`,
+    `candidate event baskets=${grouped.candidates.length}`,
     `skipped non-binary markets=${grouped.skippedNonBinary}`,
     `skipped inactive markets=${grouped.skippedInactive}`,
+    `skipped single-market complexes=${grouped.skippedSingleMarketComplexes}`,
     `operator paused=${operatorState.paused}`,
     `operator flatten_requested=${operatorState.flatten_requested}`,
     `market data stale=${marketDataStale}`
@@ -267,7 +300,7 @@ export async function analyzeCrossMarketConsistency(
     .filter((item) => item.sk === "snapshot")
     .map((item) => item.payload as MarketSnapshotPayload);
 
-  const grouped = buildBinaryPairs(snapshots);
+  const grouped = buildEventBaskets(snapshots);
 
   if (operatorState.paused || operatorState.flatten_requested || marketDataStale) {
     return {

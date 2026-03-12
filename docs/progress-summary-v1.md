@@ -104,6 +104,7 @@ Primary files:
 - Persisted operator state implemented.
 - Decision-ledger logging for operator actions implemented.
 - `cross-market consistency` proposal generator implemented.
+- The current implementation now targets event-level mutually exclusive YES baskets instead of same-market binary complements.
 - Integrated decision cycle implemented from proposal generation through allocator, risk, and execution-intent planning.
 - Decision-cycle outputs persisted into the decision ledger.
 - Slack runtime adapter implemented as `openclaw-runtime`.
@@ -203,7 +204,7 @@ More specifically:
 - Public market-state ingestion is real and verified.
 - Account-state polling is implemented and authenticated nonprod persistence is verified.
 - Continuous nonprod deployment assets for `market-state` are now in repo, but the freshly added ECS service still needs apply/deploy verification.
-- `position_snapshot` production is implemented, but the verified account currently has zero positions so live position-bearing coverage is still pending.
+- `position_snapshot` production is implemented, the authenticated live wallet still has zero positions, and nonprod paper execution now provides verified non-empty `position_snapshot` coverage end to end.
 - `trade-core` logic is implemented and a dedicated execution worker now exists, but there is still no live exchange write path.
 - `execution-worker` now supports deterministic paper execution with virtual cash and paper positions.
 - `execution-worker` is now continuously running in nonprod ECS, and the canonical paper wallet is initialized even with zero fills.
@@ -211,7 +212,7 @@ More specifically:
 - Slack `status` now surfaces paper bankroll state directly from current-state, so paper monitoring is operator-visible before any deposits.
 - Slack now has dedicated views for paper bankroll, open paper orders, recent paper fills, PnL, a 24-hour paper scorecard, and tracked market snapshots without touching the execution path.
 - Slack `why` now surfaces the last cycle diagnostics and recent allocator/risk rejects instead of only recent operator-control writes.
-- nonprod now has automated paper-cycle and daily-scorecard scheduler jobs, but live opportunities have not yet produced meaningful paper orders or fills.
+- nonprod now has automated paper-cycle and daily-scorecard scheduler jobs, and the event-basket strategy has now produced verified paper orders, fills, cash updates, and a non-empty paper position.
 - The system can reason over current-state, produce proposals, allocate capital, run risk checks, plan execution, and persist the decision chain.
 - The system cannot yet place or manage real Polymarket orders end to end.
 
@@ -246,10 +247,10 @@ Open:
 ### Immediate Remaining Work
 
 1. Apply and verify the new continuous nonprod `market-state` ECS service.
-2. Verify live `position_snapshot` writes in nonprod DynamoDB with an account that actually holds positions.
-3. Expand daily scorecards beyond top-level paper totals into sleeve-level and market-complex-level rollups.
-4. Build replay ingestion so archived market-state and ledger events can be rerun deterministically.
-5. Add promotion checks for `sim` -> `paper` and `paper` -> `prod`.
+2. Expand daily scorecards beyond top-level paper totals into sleeve-level and market-complex-level rollups.
+3. Build replay ingestion so archived market-state and ledger events can be rerun deterministically.
+4. Add promotion checks for `sim` -> `paper` and `paper` -> `prod`.
+5. Decide whether paper-mode risk limits should be widened for longer-dated event baskets after the first verified fills.
 
 ### Paper-Readiness Work
 
@@ -272,9 +273,9 @@ Open:
 ## Recommended Next Sequence
 
 1. Apply and verify the continuous nonprod `market-state` ECS service.
-2. Verify `position_snapshot` persistence with a non-empty account.
-3. Expand the daily scorecard into sleeve and market-complex rollups.
-4. Build the replay harness and promotion checks.
+2. Expand the daily scorecard into sleeve and market-complex rollups.
+3. Build the replay harness and promotion checks.
+4. Decide whether paper-mode risk limits should be widened for longer-dated event baskets.
 5. Add real exchange writes and heartbeat ack handling only after the paper-readiness gates are in place.
 
 ## Related Documents
