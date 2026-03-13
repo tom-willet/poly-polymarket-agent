@@ -49,7 +49,7 @@ pnpm --filter @poly/openclaw-control cycle
 - This is the operator command core, not the full OpenClaw runtime integration yet.
 - The service reads canonical state from `STATE_CURRENT_TABLE`.
 - Operator actions are written to both current state and the decision ledger.
-- Proposal generation now evaluates event-level mutually exclusive YES baskets, looking for combined pricing that drifts above or below par after modeled costs.
+- Proposal generation now evaluates conservative event-level mutually exclusive YES baskets, currently limited to winner-style question templates so related-but-non-exclusive markets are skipped instead of traded.
 - `markets` summarizes the latest tracked canonical `market_snapshot` rows with question/outcome labels and top-of-book prices.
 - `cycle` now derives exposure from `position_snapshot` rows when available, otherwise falls back to account state.
 - `cycle` now derives performance from `position_snapshot` rows when available, otherwise falls back to zero.

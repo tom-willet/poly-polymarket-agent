@@ -105,6 +105,7 @@ Primary files:
 - Decision-ledger logging for operator actions implemented.
 - `cross-market consistency` proposal generator implemented.
 - The current implementation now targets event-level mutually exclusive YES baskets instead of same-market binary complements.
+- The current implementation now also filters those baskets down to conservative winner-style question templates after a non-exclusive related-market false positive in paper trading.
 - Integrated decision cycle implemented from proposal generation through allocator, risk, and execution-intent planning.
 - Decision-cycle outputs persisted into the decision ledger.
 - Slack runtime adapter implemented as `openclaw-runtime`.
@@ -117,6 +118,7 @@ Primary files:
 - `markets` now reports the latest tracked canonical market snapshots with question/outcome labels.
 - `why` now reports the latest decision-cycle diagnostics plus recent allocator and risk rejection reasons.
 - `openclaw-runtime` now supports non-interactive `cycle` and `scorecard` task entrypoints for scheduled ECS execution.
+- `flatten` now liquidates existing paper exposure in the execution worker instead of only blocking new intents.
 
 Supported operator commands:
 

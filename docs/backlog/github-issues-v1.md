@@ -86,7 +86,7 @@ Checkpoint notes:
 - nonprod paper execution has now produced verified filled paper orders, paper fills, paper cash updates, and a non-empty `position_snapshot`
 - `trade-core` now has a read-side bridge from DynamoDB current-state records into risk and execution planning inputs
 - `openclaw-control` now has an operator command core with persisted mode / pause / flatten state and ledger logging
-- `openclaw-control` now has a deterministic proposal generator for event-level mutually exclusive consistency baskets
+- `openclaw-control` now has a deterministic proposal generator for conservative event-level mutually exclusive consistency baskets, with winner-style filtering to avoid related-but-non-exclusive markets
 - `openclaw-control` now has an integrated decision-cycle command that runs proposal generation through allocator, risk, and execution intent planning, then persists `execution_intent` rows for downstream execution
 - `openclaw-control` now derives cycle exposure and performance from persisted sources when available, with controlled fallbacks where live position data is not yet present
 - `openclaw-control` now has a deterministic `scorecard` operator view built from the last 24 hours of ledger activity plus canonical paper state
@@ -96,6 +96,7 @@ Checkpoint notes:
 - nonprod Slack/OpenAI secrets are populated and real Slack `status` / `risk` validation has completed through ECS
 - Slack `status` now reports paper cash, exposure, and paper PnL from canonical current-state
 - Slack now supports dedicated paper operator views plus tracked-market inspection via `markets`
+- `execution-worker` now honors paper `flatten` by cancelling open paper orders and liquidating existing paper positions
 - Slack `why` now surfaces the latest decision-cycle diagnostics and recent allocator/risk rejection reasons
 - nonprod EventBridge Scheduler now runs the paper decision cycle every 5 minutes and a daily scorecard task at 8:00 AM America/Denver
 

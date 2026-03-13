@@ -14,10 +14,12 @@ import type {
   ExecutionHeartbeatPayload,
   MarketSnapshotPayload
 } from "@poly/openclaw-control";
+import { loadOperatorState } from "@poly/openclaw-control";
 import type { ExecutionWorkerConfig } from "./config.js";
 import {
   applyPaperExecutionAction,
   ensurePaperCashSnapshot,
+  flattenPaperPortfolio,
   loadPaperOrdersForIntent,
   paperWalletId,
   reconcilePaperOrders,
@@ -224,6 +226,7 @@ export async function runExecutionTick(
   await persistHeartbeat(currentState, config.env, heartbeat, nowUtc);
 
   const accountSnapshot = await loadPrimaryAccountSnapshot(currentState);
+  const operatorState = usesPaperBroker(config.env) ? await loadOperatorState(currentState, config.env) : null;
   const rows = (await currentState.queryByPkPrefix("execution_intent#"))
     .filter((item) => item.sk === "latest")
     .sort((left, right) => right.ts_utc.localeCompare(left.ts_utc))
@@ -241,6 +244,35 @@ export async function runExecutionTick(
 
   if (paperWallet) {
     paperCashUpdates += await ensurePaperCashSnapshot(config, currentState, decisionLedger, paperWallet, nowUtc);
+  }
+
+  if (paperWallet && operatorState?.flatten_requested) {
+    const flattened = await flattenPaperPortfolio(config, currentState, decisionLedger, paperWallet, nowUtc);
+    paperOrderUpdates += flattened.order_updates;
+    paperFillUpdates += flattened.fill_updates;
+    paperCashUpdates += flattened.cash_updates;
+    paperPositionStateUpdates += flattened.position_state_updates;
+    paperPositionSnapshots += flattened.position_snapshots;
+    notes.push(...flattened.notes);
+    if (rows.length > 0) {
+      notes.push(`operator flatten requested; skipped ${rows.length} persisted execution intents`);
+    }
+    if (!accountSnapshot) {
+      notes.push("account snapshot missing while flattening paper exposure");
+    }
+
+    return {
+      heartbeat,
+      scanned_intents: rows.length,
+      processed_intents: 0,
+      action_updates: 0,
+      paper_order_updates: paperOrderUpdates,
+      paper_fill_updates: paperFillUpdates,
+      paper_cash_updates: paperCashUpdates,
+      paper_position_state_updates: paperPositionStateUpdates,
+      paper_position_snapshots: paperPositionSnapshots,
+      notes
+    };
   }
 
   for (const row of rows) {

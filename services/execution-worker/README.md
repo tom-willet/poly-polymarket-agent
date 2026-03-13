@@ -31,4 +31,5 @@ pnpm --filter @poly/execution-worker test
 - In `paper` mode, heartbeat health reflects worker liveness and deterministic paper-broker execution only.
 - `openclaw-control` is expected to publish `execution_intent` rows into current-state for this worker to consume.
 - `PAPER_STARTING_CASH_USD` controls the starting virtual bankroll for paper runs.
+- When operator state sets `flatten_requested=true` in `paper` or `sim`, the worker cancels open paper orders, crosses out of open paper positions, and refreshes aggregated `position_snapshot` state before it resumes normal intent processing.
 - nonprod ECS now runs this worker continuously via the service `poly-orchestrator-nonprod-execution-worker`.

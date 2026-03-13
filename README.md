@@ -48,12 +48,12 @@ Checkpoint notes:
 - `openclaw-control` can now persist operator mode / pause / flatten state and produce Slack-ready operator responses.
 - `openclaw-control` now exposes dedicated Slack views for paper bankroll, open paper orders, recent paper fills, and paper PnL.
 - `openclaw-control` now exposes a `markets` view over tracked canonical snapshots and a richer `why` diagnostic summary.
-- `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for event-level mutually exclusive YES baskets.
+- `openclaw-control` can now scan canonical market snapshots and emit `strategy_proposal` envelopes for conservative event-level mutually exclusive YES baskets, with winner-style question filtering to avoid non-exclusive related markets.
 - `openclaw-control` can now run an in-process decision cycle from proposal generation through allocator, risk, and execution intent planning.
 - `openclaw-control` now derives cycle exposure, performance, and heartbeat inputs from persisted state when available.
 - `openclaw-control` now persists `execution_intent` rows into current-state for the execution worker.
 - `execution-worker` now owns `health#execution-heartbeat` and evaluates deterministic `execution_action` updates from persisted intents.
-- `execution-worker` now simulates paper orders, fills, cash, and aggregated `position_snapshot` exposure without exchange writes.
+- `execution-worker` now simulates paper orders, fills, cash, and aggregated `position_snapshot` exposure without exchange writes, and paper `flatten` now actively cancels resting orders and liquidates existing paper positions.
 - `execution-worker` now runs continuously in nonprod ECS and seeds `paper_cash_snapshot` rows for the active paper wallet even before the first fill.
 - nonprod paper execution is now verified end to end through filled paper orders, paper fills, paper cash updates, and a non-empty `position_snapshot`.
 - `openclaw-runtime` now provides a Slack Socket Mode adapter over the `openclaw-control` command core.

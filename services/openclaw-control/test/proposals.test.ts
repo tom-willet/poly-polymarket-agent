@@ -286,6 +286,127 @@ test("proposal generator emits a buy-all-yes event basket when related asks sum 
   assert.match(proposals[0]?.payload.notes ?? "", /event_legs=2/);
 });
 
+test("proposal generator skips non-exclusive qualify baskets even when prices look attractive", async () => {
+  const proposals = await generateCrossMarketConsistencyProposals({
+    env: "paper",
+    config: baseConfig,
+    currentState: baseStore([
+      [
+        "health#market-data|latest",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_data_health",
+          payload: {
+            stale: false
+          }
+        }
+      ],
+      [
+        "market#ct-italy-yes|snapshot",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "mkt-italy",
+            event_id: "event-qualify",
+            slug: "italy-qualify",
+            question: "Will Italy qualify for the 2026 FIFA World Cup?",
+            contract_id: "ct-italy-yes",
+            outcome: "Yes",
+            market_complex_id: "event:26313",
+            status: "active",
+            mid_price: 0.31,
+            best_bid: 0.3,
+            best_ask: 0.31,
+            spread_cents: 1,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 24,
+            book_ts_utc: "2026-03-07T04:00:00Z"
+          }
+        }
+      ],
+      [
+        "market#ct-italy-no|snapshot",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "mkt-italy",
+            event_id: "event-qualify",
+            slug: "italy-qualify",
+            question: "Will Italy qualify for the 2026 FIFA World Cup?",
+            contract_id: "ct-italy-no",
+            outcome: "No",
+            market_complex_id: "event:26313",
+            status: "active",
+            mid_price: 0.69,
+            best_bid: 0.68,
+            best_ask: 0.69,
+            spread_cents: 1,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 24,
+            book_ts_utc: "2026-03-07T04:00:00Z"
+          }
+        }
+      ],
+      [
+        "market#ct-sweden-yes|snapshot",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "mkt-sweden",
+            event_id: "event-qualify",
+            slug: "sweden-qualify",
+            question: "Will Sweden qualify for the 2026 FIFA World Cup?",
+            contract_id: "ct-sweden-yes",
+            outcome: "Yes",
+            market_complex_id: "event:26313",
+            status: "active",
+            mid_price: 0.32,
+            best_bid: 0.31,
+            best_ask: 0.32,
+            spread_cents: 1,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 24,
+            book_ts_utc: "2026-03-07T04:00:00Z"
+          }
+        }
+      ],
+      [
+        "market#ct-sweden-no|snapshot",
+        {
+          ts_utc: "2026-03-07T04:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "mkt-sweden",
+            event_id: "event-qualify",
+            slug: "sweden-qualify",
+            question: "Will Sweden qualify for the 2026 FIFA World Cup?",
+            contract_id: "ct-sweden-no",
+            outcome: "No",
+            market_complex_id: "event:26313",
+            status: "active",
+            mid_price: 0.68,
+            best_bid: 0.67,
+            best_ask: 0.68,
+            spread_cents: 1,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 24,
+            book_ts_utc: "2026-03-07T04:00:00Z"
+          }
+        }
+      ]
+    ])
+  });
+
+  assert.equal(proposals.length, 0);
+});
+
 test("proposal generator emits no proposal when operator is paused", async () => {
   const proposals = await generateCrossMarketConsistencyProposals({
     env: "paper",

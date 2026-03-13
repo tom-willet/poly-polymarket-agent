@@ -1,5 +1,10 @@
 import type { ExecutionActionPayload, ExecutionIntentPayload, ExecutionMarketState, ExecutionOrderState } from "@poly/trade-core";
-import type { CurrentStateStore, DecisionLedgerStore, PositionSnapshotPayload } from "@poly/openclaw-control";
+import type {
+  CurrentStateStore,
+  DecisionLedgerStore,
+  MarketSnapshotPayload,
+  PositionSnapshotPayload
+} from "@poly/openclaw-control";
 import type { ExecutionWorkerConfig } from "./config.js";
 
 export interface PaperOrderPayload {
@@ -170,6 +175,79 @@ export function toExecutionOrderState(orders: PaperOrderPayload[]): ExecutionOrd
 
 function marketMap(marketState: ExecutionMarketState[]): Map<string, ExecutionMarketState> {
   return new Map(marketState.map((state) => [`${state.market_id}:${state.contract_id}`, state] as const));
+}
+
+async function loadPaperPositionStates(
+  currentState: CurrentStateStore,
+  walletId: string
+): Promise<PaperPositionStatePayload[]> {
+  return (await currentState.queryByPkPrefix(`paper_position_state#${walletId}#`))
+    .filter((row) => row.sk === "latest")
+    .map((row) => row.payload as PaperPositionStatePayload);
+}
+
+async function loadOpenPaperOrdersForWallet(
+  currentState: CurrentStateStore,
+  walletId: string
+): Promise<PaperOrderPayload[]> {
+  return (await currentState.queryByPkPrefix("paper_order#"))
+    .filter((row) => row.sk === "latest")
+    .map((row) => row.payload as PaperOrderPayload)
+    .filter((order) => order.wallet_id === walletId && order.status === "open");
+}
+
+async function cancelOpenPaperOrders(
+  config: ExecutionWorkerConfig,
+  currentState: CurrentStateStore,
+  decisionLedger: DecisionLedgerStore,
+  walletId: string,
+  tsUtc: string
+): Promise<{ orderUpdates: number; cashUpdates: number; marketComplexIds: Set<string> }> {
+  const openOrders = await loadOpenPaperOrdersForWallet(currentState, walletId);
+  const marketComplexIds = new Set(openOrders.map((order) => order.market_complex_id));
+  if (openOrders.length === 0) {
+    return { orderUpdates: 0, cashUpdates: 0, marketComplexIds };
+  }
+
+  for (const order of openOrders) {
+    const nextOrder: PaperOrderPayload = {
+      ...order,
+      status: "cancelled",
+      remaining_size: 0,
+      updated_at_utc: tsUtc
+    };
+    await persistPaperOrder(config, currentState, decisionLedger, nextOrder, tsUtc);
+  }
+
+  const cash = await loadCashSnapshot(currentState, walletId, config.paperStartingCashUsd, tsUtc);
+  const recomputed = await recomputeCashSnapshot(currentState, cash, walletId);
+  await persistPaperCash(config, currentState, decisionLedger, recomputed, tsUtc);
+
+  return {
+    orderUpdates: openOrders.length,
+    cashUpdates: 1,
+    marketComplexIds
+  };
+}
+
+async function loadMarketStateForContract(
+  currentState: CurrentStateStore,
+  contractId: string
+): Promise<ExecutionMarketState | null> {
+  const snapshot = await currentState.get<MarketSnapshotPayload>(`market#${contractId}`, "snapshot");
+  if (!snapshot) {
+    return null;
+  }
+
+  return {
+    market_id: snapshot.payload.market_id,
+    contract_id: snapshot.payload.contract_id,
+    best_bid: snapshot.payload.best_bid,
+    best_ask: snapshot.payload.best_ask,
+    spread_cents: snapshot.payload.spread_cents,
+    top_bid_size: snapshot.payload.top_bid_size,
+    top_ask_size: snapshot.payload.top_ask_size
+  };
 }
 
 function executablePrice(order: PaperOrderPayload, market: ExecutionMarketState): number | null {
@@ -352,13 +430,16 @@ async function recomputeCashSnapshot(
   cash: PaperCashSnapshotPayload,
   walletId: string
 ): Promise<PaperCashSnapshotPayload> {
+  const positionStates = await loadPaperPositionStates(currentState, walletId);
   const openOrders = (await currentState.queryByPkPrefix("paper_order#"))
     .filter((row) => row.sk === "latest")
     .map((row) => row.payload as PaperOrderPayload)
     .filter((order) => order.wallet_id === walletId && order.status === "open" && order.side === "buy");
   const reserved = roundUsd(openOrders.reduce((sum, order) => sum + order.remaining_size * order.limit_price, 0));
+  const realized = roundUsd(positionStates.reduce((sum, position) => sum + position.realized_pnl_usd, 0));
   return {
     ...cash,
+    realized_pnl_usd: realized,
     reserved_cash_usd: reserved,
     available_cash_usd: roundUsd(cash.cash_balance_usd - reserved)
   };
@@ -608,6 +689,113 @@ export async function reconcilePaperOrders(
     tsUtc,
     markets
   );
+
+  return {
+    order_updates: orderUpdates,
+    fill_updates: fillUpdates,
+    cash_updates: cashUpdates,
+    position_state_updates: positionStateUpdates,
+    position_snapshots: snapshotUpdates,
+    notes
+  };
+}
+
+export async function flattenPaperPortfolio(
+  config: ExecutionWorkerConfig,
+  currentState: CurrentStateStore,
+  decisionLedger: DecisionLedgerStore,
+  walletId: string,
+  tsUtc: string
+): Promise<PaperBrokerSummary> {
+  const notes: string[] = [];
+  let orderUpdates = 0;
+  let fillUpdates = 0;
+  let cashUpdates = 0;
+  let positionStateUpdates = 0;
+
+  const cancelled = await cancelOpenPaperOrders(config, currentState, decisionLedger, walletId, tsUtc);
+  orderUpdates += cancelled.orderUpdates;
+  cashUpdates += cancelled.cashUpdates;
+
+  const positionStates = await loadPaperPositionStates(currentState, walletId);
+  const openPositions = positionStates.filter((position) => Math.abs(position.quantity) > EPSILON);
+  const marketByContract = new Map<string, ExecutionMarketState>();
+  const touchedComplexes = new Set(cancelled.marketComplexIds);
+
+  for (const position of openPositions) {
+    touchedComplexes.add(position.market_complex_id);
+
+    const market = await loadMarketStateForContract(currentState, position.contract_id);
+    if (market) {
+      marketByContract.set(`${market.market_id}:${market.contract_id}`, market);
+    } else {
+      notes.push(`flatten used avg cost for ${position.contract_id} because market snapshot was missing`);
+    }
+
+    const side = position.quantity > 0 ? "sell" : "buy";
+    const fillPrice =
+      side === "buy"
+        ? market?.best_ask ?? market?.best_bid ?? position.avg_cost
+        : market?.best_bid ?? market?.best_ask ?? position.avg_cost;
+    const requestedSize = round(Math.abs(position.quantity));
+    const order: PaperOrderPayload = {
+      paper_order_id: crypto.randomUUID(),
+      wallet_id: walletId,
+      order_plan_id: `operator-flatten-${tsUtc}`,
+      decision_id: `operator-flatten-${tsUtc}`,
+      sleeve_id: position.sleeve_id,
+      market_complex_id: position.market_complex_id,
+      market_id: position.market_id,
+      contract_id: position.contract_id,
+      side,
+      order_style: "cross",
+      status: "filled",
+      limit_price: round(fillPrice),
+      requested_size: requestedSize,
+      filled_size: requestedSize,
+      remaining_size: 0,
+      avg_fill_price: round(fillPrice),
+      created_at_utc: tsUtc,
+      updated_at_utc: tsUtc
+    };
+    await persistPaperOrder(config, currentState, decisionLedger, order, tsUtc);
+    orderUpdates += 1;
+
+    const portfolio = await applyFillToPortfolio(
+      config,
+      currentState,
+      decisionLedger,
+      walletId,
+      order,
+      fillPrice,
+      requestedSize,
+      tsUtc
+    );
+    fillUpdates += portfolio.fillUpdates;
+    cashUpdates += portfolio.cashUpdates;
+    positionStateUpdates += portfolio.positionStateUpdates;
+  }
+
+  let snapshotUpdates = 0;
+  for (const marketComplexId of touchedComplexes) {
+    snapshotUpdates += await updateAggregatedPositionSnapshot(
+      config,
+      currentState,
+      decisionLedger,
+      walletId,
+      marketComplexId,
+      tsUtc,
+      marketByContract
+    );
+  }
+
+  if (cancelled.orderUpdates === 0 && openPositions.length === 0) {
+    notes.push("operator flatten requested but no paper exposure was open");
+  } else {
+    notes.push(
+      `operator flatten requested; cancelled ${cancelled.orderUpdates} open paper orders and closed ${openPositions.length} paper positions`
+    );
+  }
 
   return {
     order_updates: orderUpdates,

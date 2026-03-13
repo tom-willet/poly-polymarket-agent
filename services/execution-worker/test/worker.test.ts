@@ -78,6 +78,90 @@ test("execution worker persists heartbeat even with no intents", async () => {
   assert.equal(heartbeat?.payload.healthy, true);
 });
 
+test("execution worker recomputes wallet-level realized paper pnl from position state", async () => {
+  process.env.EXECUTION_HEARTBEAT_TIMEOUT_MS = "15000";
+  const currentState = new InMemoryCurrentStateStore(
+    new Map([
+      [
+        "account#0xabc|snapshot",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "account_state_snapshot",
+          payload: {
+            user_address: "0xabc",
+            funder_address: "0xabc",
+            collateral: { balance: 1000, allowance: 1000 },
+            open_order_count: 0,
+            position_count: 0,
+            recent_trade_count: 0,
+            total_position_value_usd: 0,
+            open_orders: []
+          }
+        }
+      ],
+      [
+        "paper_cash#paper:0xabc|latest",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "paper_cash_snapshot",
+          payload: {
+            wallet_id: "paper:0xabc",
+            starting_cash_usd: 500,
+            cash_balance_usd: 510,
+            reserved_cash_usd: 0,
+            available_cash_usd: 510,
+            realized_pnl_usd: 0,
+            updated_at_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ],
+      [
+        "paper_position_state#paper:0xabc#ct-1|latest",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "paper_position_state",
+          payload: {
+            wallet_id: "paper:0xabc",
+            sleeve_id: "cross_market_core",
+            market_complex_id: "event:1",
+            market_id: "mkt-1",
+            contract_id: "ct-1",
+            quantity: 0,
+            avg_cost: 0,
+            realized_pnl_usd: 1.5,
+            updated_at_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ],
+      [
+        "paper_position_state#paper:0xabc#ct-2|latest",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "paper_position_state",
+          payload: {
+            wallet_id: "paper:0xabc",
+            sleeve_id: "cross_market_core",
+            market_complex_id: "event:2",
+            market_id: "mkt-2",
+            contract_id: "ct-2",
+            quantity: 0,
+            avg_cost: 0,
+            realized_pnl_usd: -0.4,
+            updated_at_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ]
+    ])
+  );
+  const decisionLedger = new InMemoryDecisionLedgerStore();
+
+  const summary = await runExecutionTick(config(), currentState, decisionLedger, new Date("2026-03-08T00:00:10Z"));
+
+  assert.equal(summary.paper_cash_updates, 1);
+  const paperCash = await currentState.get<{ realized_pnl_usd: number }>("paper_cash#paper:0xabc", "latest");
+  assert.equal(paperCash?.payload.realized_pnl_usd, 1.1);
+});
+
 test("execution worker evaluates actions from persisted intents", async () => {
   process.env.EXECUTION_HEARTBEAT_TIMEOUT_MS = "15000";
   process.env.EXECUTION_INTENT_EXPIRY_SECONDS = "30";
@@ -347,4 +431,196 @@ test("paper broker cancels resting passive orders and crosses on a later tick", 
   const finalCash = await currentState.get<{ cash_balance_usd: number }>("paper_cash#paper:0xabc", "latest");
   assert.equal(finalCash?.event_type, "paper_cash_snapshot");
   assert.equal(finalCash?.payload.cash_balance_usd < 500, true);
+});
+
+test("execution worker flattens paper exposure when operator flatten is requested", async () => {
+  process.env.EXECUTION_HEARTBEAT_TIMEOUT_MS = "15000";
+  process.env.EXECUTION_INTENT_EXPIRY_SECONDS = "30";
+  process.env.EXECUTION_PASSIVE_RESTING_MS = "3000";
+
+  const currentState = new InMemoryCurrentStateStore(
+    new Map([
+      [
+        "control#operator|latest",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "operator_state",
+          payload: {
+            mode: "paper",
+            paused: true,
+            flatten_requested: true,
+            updated_by: "codex",
+            updated_at_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ],
+      [
+        "account#0xabc|snapshot",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "account_state_snapshot",
+          payload: {
+            user_address: "0xabc",
+            funder_address: "0xabc",
+            collateral: { balance: 1000, allowance: 1000 },
+            open_order_count: 0,
+            position_count: 0,
+            recent_trade_count: 0,
+            total_position_value_usd: 0,
+            open_orders: []
+          }
+        }
+      ],
+      [
+        "market#ct-yes|snapshot",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "market_snapshot",
+          payload: {
+            market_id: "mkt-1",
+            contract_id: "ct-yes",
+            market_complex_id: "event:1",
+            status: "active",
+            mid_price: 0.575,
+            best_bid: 0.57,
+            best_ask: 0.58,
+            spread_cents: 1,
+            top_bid_size: 100,
+            top_ask_size: 100,
+            time_to_resolution_hours: 24,
+            book_ts_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ],
+      [
+        "execution_intent#plan-stale|latest",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "execution_intent",
+          payload: {
+            order_plan_id: "plan-stale",
+            decision_id: "decision-stale",
+            sleeve_id: "cross_market_core",
+            market_complex_id: "event:1",
+            execution_style: "passive_then_cross",
+            max_notional_usd: 40,
+            legs: [
+              {
+                market_id: "mkt-1",
+                contract_id: "ct-yes",
+                side: "sell",
+                limit_price: 0.57,
+                max_size: 10
+              }
+            ],
+            expiry_utc: "2026-03-08T00:00:30Z",
+            cancel_if_unfilled: true
+          }
+        }
+      ],
+      [
+        "paper_cash#paper:0xabc|latest",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "paper_cash_snapshot",
+          payload: {
+            wallet_id: "paper:0xabc",
+            starting_cash_usd: 500,
+            cash_balance_usd: 506,
+            reserved_cash_usd: 1.14,
+            available_cash_usd: 504.86,
+            realized_pnl_usd: 0,
+            updated_at_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ],
+      [
+        "paper_order#order-open|latest",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "paper_order",
+          payload: {
+            paper_order_id: "order-open",
+            wallet_id: "paper:0xabc",
+            order_plan_id: "plan-stale",
+            decision_id: "decision-stale",
+            sleeve_id: "cross_market_core",
+            market_complex_id: "event:1",
+            market_id: "mkt-1",
+            contract_id: "ct-yes",
+            side: "buy",
+            order_style: "passive",
+            status: "open",
+            limit_price: 0.57,
+            requested_size: 2,
+            filled_size: 0,
+            remaining_size: 2,
+            avg_fill_price: null,
+            created_at_utc: "2026-03-08T00:00:00Z",
+            updated_at_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ],
+      [
+        "paper_position_state#paper:0xabc#ct-yes|latest",
+        {
+          ts_utc: "2026-03-08T00:00:00Z",
+          event_type: "paper_position_state",
+          payload: {
+            wallet_id: "paper:0xabc",
+            sleeve_id: "cross_market_core",
+            market_complex_id: "event:1",
+            market_id: "mkt-1",
+            contract_id: "ct-yes",
+            quantity: -10,
+            avg_cost: 0.6,
+            realized_pnl_usd: 0,
+            updated_at_utc: "2026-03-08T00:00:00Z"
+          }
+        }
+      ]
+    ])
+  );
+  const decisionLedger = new InMemoryDecisionLedgerStore();
+
+  const summary = await runExecutionTick(config(), currentState, decisionLedger, new Date("2026-03-08T00:00:10Z"));
+
+  assert.equal(summary.scanned_intents, 1);
+  assert.equal(summary.processed_intents, 0);
+  assert.equal(summary.action_updates, 0);
+  assert.equal(summary.paper_order_updates, 2);
+  assert.equal(summary.paper_fill_updates, 1);
+  assert.equal(summary.notes.some((note) => note.includes("operator flatten requested")), true);
+  assert.equal(summary.notes.some((note) => note.includes("skipped 1 persisted execution intents")), true);
+
+  const cancelledOrder = await currentState.get<{ status: string }>("paper_order#order-open", "latest");
+  assert.equal(cancelledOrder?.payload.status, "cancelled");
+
+  const positionState = await currentState.get<{ quantity: number; realized_pnl_usd: number }>(
+    "paper_position_state#paper:0xabc#ct-yes",
+    "latest"
+  );
+  assert.equal(positionState?.payload.quantity, 0);
+  assert.equal(positionState?.payload.realized_pnl_usd, 0.2);
+
+  const snapshot = await currentState.get<{
+    gross_exposure_usd: number;
+    net_exposure_usd: number;
+    unrealized_pnl_usd: number;
+    open_orders_reserved_usd: number;
+    realized_pnl_usd: number;
+  }>("position#paper:0xabc#event:1", "snapshot");
+  assert.equal(snapshot?.event_type, "position_snapshot");
+  assert.equal(snapshot?.payload.gross_exposure_usd, 0);
+  assert.equal(snapshot?.payload.net_exposure_usd, 0);
+  assert.equal(snapshot?.payload.unrealized_pnl_usd, 0);
+  assert.equal(snapshot?.payload.open_orders_reserved_usd, 0);
+  assert.equal(snapshot?.payload.realized_pnl_usd, 0.2);
+
+  const finalCash = await currentState.get<{ cash_balance_usd: number; available_cash_usd: number }>(
+    "paper_cash#paper:0xabc",
+    "latest"
+  );
+  assert.equal(finalCash?.payload.cash_balance_usd, 500.2);
+  assert.equal(finalCash?.payload.available_cash_usd, 500.2);
 });

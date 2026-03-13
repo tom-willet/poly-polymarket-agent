@@ -16,6 +16,11 @@ interface EventBasketCandidate {
   legs: MarketSnapshotPayload[];
 }
 
+interface ExclusiveQuestionKey {
+  entity: string;
+  template: string;
+}
+
 type CandidateRejectionReason = "spread" | "resolution" | "edge";
 
 interface CandidateEvaluationAccepted {
@@ -97,12 +102,63 @@ function basketLabel(marketComplexId: string, legs: MarketSnapshotPayload[]): st
   return sample.event_id ? `event ${sample.event_id}` : sample.slug || sample.question || marketComplexId;
 }
 
+function normalizeWhitespace(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+const EXCLUSIVE_QUESTION_PATTERNS = [
+  /^Will\s+(.+?)\s+(win(?:\s+.+)?)$/i,
+  /^Will\s+(.+?)\s+(be elected(?:\s+.+)?)$/i,
+  /^Will\s+(.+?)\s+(be the next(?:\s+.+)?)$/i,
+  /^Will\s+(.+?)\s+(receive the most votes(?:\s+.+)?)$/i,
+  /^Will\s+(.+?)\s+(finish first(?:\s+.+)?)$/i
+] as const;
+
+function exclusiveQuestionKey(question: string): ExclusiveQuestionKey | null {
+  const trimmed = normalizeWhitespace(question).replace(/\?+$/, "");
+  for (const pattern of EXCLUSIVE_QUESTION_PATTERNS) {
+    const match = pattern.exec(trimmed);
+    if (!match) {
+      continue;
+    }
+
+    const entity = normalizeWhitespace(match[1] ?? "");
+    const predicate = normalizeWhitespace(match[2] ?? "").toLowerCase();
+    if (entity.length === 0 || predicate.length === 0) {
+      return null;
+    }
+
+    return {
+      entity: entity.toLowerCase(),
+      template: predicate
+    };
+  }
+
+  return null;
+}
+
+function isExclusiveBasket(legs: MarketSnapshotPayload[]): boolean {
+  const keys = legs.map((leg) => exclusiveQuestionKey(leg.question));
+  if (keys.some((key) => key === null)) {
+    return false;
+  }
+
+  const normalized = keys as ExclusiveQuestionKey[];
+  const template = normalized[0]?.template;
+  if (!template || !normalized.every((key) => key.template === template)) {
+    return false;
+  }
+
+  return new Set(normalized.map((key) => key.entity)).size === normalized.length;
+}
+
 function buildEventBaskets(markets: MarketSnapshotPayload[]): {
   totalMarkets: number;
   skippedNonBinary: number;
   skippedInactive: number;
   binaryActiveMarkets: number;
   skippedSingleMarketComplexes: number;
+  skippedNonExclusiveComplexes: number;
   candidates: EventBasketCandidate[];
 } {
   const byMarketId = groupSnapshotsByMarket(markets);
@@ -137,9 +193,15 @@ function buildEventBaskets(markets: MarketSnapshotPayload[]): {
 
   const candidates: EventBasketCandidate[] = [];
   let skippedSingleMarketComplexes = 0;
+  let skippedNonExclusiveComplexes = 0;
   for (const [marketComplexId, legs] of byMarketComplexId.entries()) {
     if (legs.length < 2) {
       skippedSingleMarketComplexes += 1;
+      continue;
+    }
+
+    if (!isExclusiveBasket(legs)) {
+      skippedNonExclusiveComplexes += 1;
       continue;
     }
 
@@ -157,6 +219,7 @@ function buildEventBaskets(markets: MarketSnapshotPayload[]): {
     skippedInactive,
     binaryActiveMarkets,
     skippedSingleMarketComplexes,
+    skippedNonExclusiveComplexes,
     candidates
   };
 }
@@ -257,6 +320,7 @@ function diagnosticsFromEvaluations(
     `skipped non-binary markets=${grouped.skippedNonBinary}`,
     `skipped inactive markets=${grouped.skippedInactive}`,
     `skipped single-market complexes=${grouped.skippedSingleMarketComplexes}`,
+    `skipped non-exclusive complexes=${grouped.skippedNonExclusiveComplexes}`,
     `operator paused=${operatorState.paused}`,
     `operator flatten_requested=${operatorState.flatten_requested}`,
     `market data stale=${marketDataStale}`

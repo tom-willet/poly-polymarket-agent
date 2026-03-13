@@ -69,7 +69,12 @@ Watch for:
 ## Current Gaps Worth Watching
 
 - The first non-empty paper `position_snapshot` is now live; the next thing to watch is whether paper fills, exposure, and PnL continue to reconcile cleanly over time.
+- The proposal generator is now intentionally conservative about basket eligibility after a false-positive related-market trade; only winner-style mutually exclusive baskets are currently eligible.
 - Cost visibility is account-level, not yet project-tag-level.
+
+## Operator Safety Note
+
+- In `paper` mode, `flatten` now does what operators expect: it pauses new execution, cancels open paper orders, liquidates open paper positions, and refreshes `position_snapshot` state back toward flat.
 
 ## Recommended Next Observation Upgrade
 
