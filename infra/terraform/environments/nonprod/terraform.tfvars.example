@@ -1,4 +1,5 @@
-aws_profile = "mullet-dev"
+aws_profile = "willy-nilly-dev"
+expected_aws_account_id = "174444915162"
 openclaw_runtime_allowed_user_ids = ["U0123ABCDEF"]
 openclaw_runtime_report_user_ids  = ["U0123ABCDEF"]
 daily_cost_report_email = "ops@example.com"

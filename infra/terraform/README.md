@@ -27,8 +27,8 @@ Example for nonprod:
 ```bash
 cd infra/terraform/environments/nonprod
 cp terraform.tfvars.example terraform.tfvars
-../../../../scripts/infra/bootstrap_tf_backend.sh mullet-dev poly-orchestrator-tfstate-418295697992
-terraform init -backend-config=backend.hcl.example
+../../../../scripts/infra/bootstrap_tf_backend.sh willy-nilly-dev poly-orchestrator-tfstate-174444915162
+terraform init -reconfigure -backend-config=backend.hcl.example
 terraform plan
 ```
 
@@ -37,8 +37,8 @@ Example for prod:
 ```bash
 cd infra/terraform/environments/prod
 cp terraform.tfvars.example terraform.tfvars
-../../../../scripts/infra/bootstrap_tf_backend.sh mullet-prod poly-orchestrator-tfstate-183295425682
-terraform init -backend-config=backend.hcl.example
+../../../../scripts/infra/bootstrap_tf_backend.sh willy-nilly-prod poly-orchestrator-tfstate-495026847132
+terraform init -reconfigure -backend-config=backend.hcl.example
 terraform plan
 ```
 
@@ -46,6 +46,8 @@ terraform plan
 
 - This layout uses the AWS CLI profile configured in each environment's `terraform.tfvars` and backend config.
 - The intended workflow uses the remote S3 backend templates committed under each environment root.
+- Each environment now sets `expected_aws_account_id` in `terraform.tfvars`, and the AWS provider will refuse to plan/apply/destroy if the active account does not match.
+- The backend examples now also include `allowed_account_ids`; after editing the account numbers, rerun `terraform init -reconfigure -backend-config=backend.hcl.example` so the backend enforces the same guard.
 - The repo includes a bootstrap script for the current `mullet-dev` and `mullet-prod` accounts.
 - Secret resources are created as empty placeholders; populate values in Secrets Manager after apply.
 - `openclaw-runtime` is the service intended to read Slack secrets in this scaffold.

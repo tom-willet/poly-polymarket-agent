@@ -9,6 +9,16 @@ variable "aws_profile" {
   type        = string
 }
 
+variable "expected_aws_account_id" {
+  description = "AWS account ID that nonprod Terraform is allowed to target."
+  type        = string
+
+  validation {
+    condition     = can(regex("^\\d{12}$", var.expected_aws_account_id))
+    error_message = "expected_aws_account_id must be a 12-digit AWS account ID."
+  }
+}
+
 variable "openclaw_runtime_allowed_user_ids" {
   description = "Slack user IDs allowed to operate the nonprod runtime."
   type        = list(string)
